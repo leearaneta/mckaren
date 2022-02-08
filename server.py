@@ -1,7 +1,6 @@
 import os
 import psycopg2
 import psycopg2.extras
-import pytz
 from flask import Flask, jsonify, send_from_directory
 from flask_cors import CORS
 
@@ -29,6 +28,4 @@ def hello_world():
             cursor.execute('SELECT * from openings;')
             rows = cursor.fetchall()
     conn.close()
-    est = pytz.timezone('EST')
-    with_timezone = [{**row, "datetime": est.localize(row["datetime"])} for row in rows]
-    return jsonify(with_timezone)
+    return jsonify(rows)

@@ -38,12 +38,12 @@
   }
 
   let openings;
-  function formatOpening({ court, ...opening }) {
+  function formatOpening({ court, urls, ...opening }) {
     const datetime = new Date(opening.datetime);
     const startHour = datetime.getHours() + (datetime.getMinutes() / 60);
     const hourLength = opening.length;
     const endHour = startHour + hourLength;
-    return { court, datetime, startHour, endHour, hourLength };
+    return { court, urls, datetime, startHour, endHour, hourLength };
   }
   $: {
     const url = import.meta.env.DEV ? 'http://localhost:5000/openings' : './openings';

@@ -4,6 +4,7 @@ import asyncio
 import aiohttp
 import psycopg2
 import psycopg2.extras
+from urllib.parse import urlencode, parse_qsl
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 
@@ -63,40 +64,100 @@ async def get_all_court_times():
         all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date, session) for date in dates]))
         return all_court_times
 
-def insert_new_court_times(all_court_times, cursor):
+def get_openings(all_court_times, cursor):
     ts_format = "%Y-%m-%d %H:%M"
-    values = [f"({court_time['court']}, '{court_time['datetime'].strftime(ts_format)}')" for court_time in all_court_times]
+    def get_formatted_value(court_time):
+        return f"({court_time['court']}, '{court_time['datetime'].strftime(ts_format)}')"
+
+    values = [get_formatted_value(court_time) for court_time in all_court_times]
     insert = f"""
         CREATE TEMPORARY TABLE court_times (court SMALLINT, datetime TIMESTAMP);
         INSERT INTO court_times VALUES {','.join(values)};
     """
     cursor.execute(insert)
-    new_openings = """
+    openings = """
         CREATE TEMPORARY TABLE interval_start AS
-            SELECT generate_series(date_trunc('hour', now())::timestamp, '2022-04-29 00:00'::timestamp, '30m') as datetime;
-        CREATE TEMPORARY TABLE new_openings AS
-            SELECT interval_start.datetime, court, 2 as length
-            FROM interval_start
-            INNER JOIN court_times
-            ON court_times.datetime >= interval_start.datetime
-            AND court_times.datetime < interval_start.datetime + interval '2h'
-            AND EXTRACT(MINUTE FROM court_times.datetime) = EXTRACT(MINUTE FROM interval_start.datetime)
-            GROUP BY interval_start.datetime, court
-            HAVING COUNT(DISTINCT court_times.datetime) = 2
-            UNION
-            SELECT interval_start.datetime, court, 3 as length
-            FROM interval_start
-            INNER JOIN court_times
-            ON court_times.datetime >= interval_start.datetime
-            AND court_times.datetime < interval_start.datetime + interval '3h'
-            AND EXTRACT(MINUTE FROM court_times.datetime) = EXTRACT(MINUTE FROM interval_start.datetime)
-            GROUP BY interval_start.datetime, court
-            HAVING COUNT(DISTINCT court_times.datetime) = 3
-            UNION
-            SELECT datetime, court, 1 as length
-            FROM court_times;
+            SELECT generate_series(date_trunc('hour', now())::TIMESTAMP, '2022-04-29 00:00'::TIMESTAMP, '30m') as datetime;
+        SELECT interval_start.datetime, court, 2 as length
+        FROM interval_start
+        INNER JOIN court_times
+        ON court_times.datetime >= interval_start.datetime
+        AND court_times.datetime < interval_start.datetime + interval '2h'
+        AND EXTRACT(MINUTE FROM court_times.datetime) = EXTRACT(MINUTE FROM interval_start.datetime)
+        GROUP BY interval_start.datetime, court
+        HAVING COUNT(DISTINCT court_times.datetime) = 2
+        UNION
+        SELECT interval_start.datetime, court, 3 as length
+        FROM interval_start
+        INNER JOIN court_times
+        ON court_times.datetime >= interval_start.datetime
+        AND court_times.datetime < interval_start.datetime + interval '3h'
+        AND EXTRACT(MINUTE FROM court_times.datetime) = EXTRACT(MINUTE FROM interval_start.datetime)
+        GROUP BY interval_start.datetime, court
+        HAVING COUNT(DISTINCT court_times.datetime) = 3
+        UNION
+        SELECT datetime, court, 1 as length
+        FROM court_times;
     """
-    cursor.execute(new_openings)
+    cursor.execute(openings)
+    return cursor.fetchall()
+
+weekend_session_id_mapping = {
+    8: { 1: 35, 2: 36, 3: 37 },
+    19: { 1: 25, 2: 26, 3: 27 },
+    24: { 1: 29, 2: 30, 3: 32 }
+}
+weekday_session_id_mapping = {
+    14: { 1: 14, 2: 15, 3: 16 },
+    18: { 1: 5, 2: 7, 3: 8 },
+    22: { 1: 18, 2: 19, 3: 20 },
+    24: { 1: 1128, 2: 1130 },
+}
+
+def get_urls_from_opening(opening):
+    is_weekend = opening['datetime'].weekday() in [5, 6]
+    session_id_mapping = weekend_session_id_mapping if is_weekend else weekday_session_id_mapping
+    sessions = sorted(session_id_mapping.keys())
+    
+    def get_hours_spent_per_session(hour, length, hours_spent_per_session = {}):
+        session = [s for s in sessions if hour < s][0]
+        hours_spent_per_session.setdefault(session, 0)
+        hours_spent_per_session[session] += 1
+        if length == 1:
+            return hours_spent_per_session
+        else:
+            return get_hours_spent_per_session(hour + 1, length - 1, hours_spent_per_session)
+    
+    hours_spent_per_session = sorted(get_hours_spent_per_session(opening['datetime'].hour, opening['length']).items())
+    
+    def get_url_from_session_length(session_length, idx):
+        session, length = session_length
+        session_id = session_id_mapping[session][length]
+        booking_datetime = opening['datetime']
+        if idx > 0:
+            hour_offset = hours_spent_per_session[0][1]
+            booking_datetime = opening['datetime'] + timedelta(hours = hour_offset)
+        iso_string = booking_datetime.isoformat().split('.')[0]
+        date_string = booking_datetime.strftime('%a %b %d %I:%M %p')
+        court = opening['court']
+        query_string = f"item[info]={date_string}&item[mbo_location_id]=1&item[name]={length} Hour Rental with Tennis Court #{court}&item[session_type_id]={session_id}&item[staff_id]={court+3}&item[start_date_time]={iso_string}+00:00&item[type]=Appointment&source=appointment_v0"
+        base_url = 'https://cart.mindbodyonline.com/sites/19060/cart/add_booking?'
+        return f"{base_url}{urlencode(parse_qsl(query_string))}"
+    
+    return [get_url_from_session_length(session_length, idx) for idx, session_length in enumerate(hours_spent_per_session)]
+
+def insert_openings(openings, cursor):
+    ts_format = "%Y-%m-%d %H:%M"
+    def get_formatted_value(opening):
+        urls = get_urls_from_opening(opening)
+        return f"({opening['court']}, '{opening['datetime'].strftime(ts_format)} EST', {opening['length']}, ARRAY{urls})"
+
+    values = [get_formatted_value(opening) for opening in openings]
+    insert = f"""
+        CREATE TEMPORARY TABLE new_openings (court SMALLINT, datetime TIMESTAMP WITH TIME ZONE, length SMALLINT, urls TEXT[]);
+        INSERT INTO new_openings VALUES {','.join(values)};
+    """
+    cursor.execute(insert)
 
 def get_opening_diff(cursor):
     compare = """
@@ -121,7 +182,8 @@ async def etl():
     conn = psycopg2.connect(conn_str)
     with conn:
         with conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cursor:
-            insert_new_court_times(all_court_times, cursor)
+            openings = get_openings(all_court_times, cursor)
+            insert_openings(openings, cursor)
             opening_diff = get_opening_diff(cursor)
             transfer_openings(cursor)
     conn.commit()
