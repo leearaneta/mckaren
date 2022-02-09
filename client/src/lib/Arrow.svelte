@@ -10,8 +10,8 @@
 	svg {
 		width: 1.5rem;
 		height: 1.5rem;
-    margin-left: 1rem;
-    margin-right: 1rem;
+    margin-left: 0.75rem;
+    margin-right: 0.75rem;
 		cursor: pointer;
 	}
 	

@@ -4,8 +4,9 @@
 
   export let openings;
   const margin = 10;
-  const width = 1600;
-  const height = 250;
+  const width = 1500;
+  const height = 360;
+  const fontSize = width / 80;
   const minX = -margin / 2;
   const minY = -margin / 2;
   const maxX = width + (margin / 2);
@@ -31,8 +32,7 @@
   const yLineSpacing = (width - yLineStart) / yLineCount;
   const yLinePositions = _.range(yLineCount).map(idx => idx * yLineSpacing + yLineStart);
 
-  let hoveredOpening;
-  $: getRectAttrsForOpening = ({ startHour, hourLength, court }) => {
+  function getRectAttrsForOpening({ startHour, hourLength, court }) {
     const idx = startHour - 5;
     const x = idx * yLineSpacing + yLineStart;
     const width = yLineSpacing * hourLength;
@@ -58,22 +58,28 @@
   }
   $: formattedSelectedDate = selectedDate ? formatDate(selectedDate) : '';
 
+  let hoveredOpening;
+
 </script>
 
 <main>
   <svg viewBox={`${minX} ${minY} ${maxX} ${maxY}`}>
-    <text x="0" y={timeLabelHeight - 5} font-size="20"> { formattedSelectedDate } </text>
+    <text x="0" y={timeLabelHeight - 5} font-size={fontSize * 1.2}> { formattedSelectedDate } </text>
     {#each xLinePositions as pos}
       <line stroke="rgba(0, 0, 0, .5)" x1="0" x2={width} y1={pos} y2={pos}/>
     {/each}
     {#each courts as court, idx}
-      <text x="0" y={xTextPositions[idx]}> Court {court} </text>
+      <text x="0" y={xTextPositions[idx]} font-size={fontSize}> Court {court} </text>
     {/each}
     {#each yLinePositions as pos}
       <line stroke="rgba(0, 0, 0, .25)" x1={pos} x2={pos} y1={timeLabelHeight} y2={height}/>
     {/each}
     {#each yLinePositions as pos, idx}
-      <text x={pos} y={timeLabelHeight - 2} text-anchor="middle" opacity="0.75"> { allCourtTimes[idx] } </text>
+      <text
+        x={pos} y={timeLabelHeight - 5}
+        text-anchor="middle" font-size={fontSize}
+        opacity="0.75"
+      > { allCourtTimes[idx] } </text>
     {/each}
     {#each sortedOpenings as opening}
       <rect

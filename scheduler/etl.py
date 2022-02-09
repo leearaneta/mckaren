@@ -78,7 +78,7 @@ def get_openings(all_court_times, cursor):
     openings = """
         CREATE TEMPORARY TABLE interval_start AS
             SELECT generate_series(date_trunc('hour', now())::TIMESTAMP, '2022-04-29 00:00'::TIMESTAMP, '30m') as datetime;
-        SELECT interval_start.datetime, court, 2 as length
+        SELECT interval_start.datetime, court, 2 as hour_length
         FROM interval_start
         INNER JOIN court_times
         ON court_times.datetime >= interval_start.datetime
@@ -87,7 +87,7 @@ def get_openings(all_court_times, cursor):
         GROUP BY interval_start.datetime, court
         HAVING COUNT(DISTINCT court_times.datetime) = 2
         UNION
-        SELECT interval_start.datetime, court, 3 as length
+        SELECT interval_start.datetime, court, 3 as hour_length
         FROM interval_start
         INNER JOIN court_times
         ON court_times.datetime >= interval_start.datetime
@@ -96,7 +96,7 @@ def get_openings(all_court_times, cursor):
         GROUP BY interval_start.datetime, court
         HAVING COUNT(DISTINCT court_times.datetime) = 3
         UNION
-        SELECT datetime, court, 1 as length
+        SELECT datetime, court, 1 as hour_length
         FROM court_times;
     """
     cursor.execute(openings)
@@ -128,7 +128,7 @@ def get_urls_from_opening(opening):
         else:
             return get_hours_spent_per_session(hour + 1, length - 1, hours_spent_per_session)
     
-    hours_spent_per_session = sorted(get_hours_spent_per_session(opening['datetime'].hour, opening['length']).items())
+    hours_spent_per_session = sorted(get_hours_spent_per_session(opening['datetime'].hour, opening['hour_length']).items())
     
     def get_url_from_session_length(session_length, idx):
         session, length = session_length
@@ -149,12 +149,16 @@ def get_urls_from_opening(opening):
 def insert_openings(openings, cursor):
     ts_format = "%Y-%m-%d %H:%M"
     def get_formatted_value(opening):
+        start_hour = opening['datetime'].hour + (opening['datetime'].minute / 60)
+        end_hour = start_hour + opening['hour_length']
+        weekday = opening['datetime'].weekday() + 1 # convert to postgres format
+        dt = f'{opening["datetime"].strftime(ts_format)} EST'
         urls = get_urls_from_opening(opening)
-        return f"({opening['court']}, '{opening['datetime'].strftime(ts_format)} EST', {opening['length']}, ARRAY{urls})"
+        return f"({opening['court']}, '{dt}', {weekday}, {opening['hour_length']}, {start_hour}, {end_hour}, ARRAY{urls})"
 
     values = [get_formatted_value(opening) for opening in openings]
     insert = f"""
-        CREATE TEMPORARY TABLE new_openings (court SMALLINT, datetime TIMESTAMP WITH TIME ZONE, length SMALLINT, urls TEXT[]);
+        CREATE TEMPORARY TABLE new_openings (court SMALLINT, datetime TEXT, day SMALLINT, hour_length SMALLINT, start_hour FLOAT, end_hour FLOAT, urls TEXT[]);
         INSERT INTO new_openings VALUES {','.join(values)};
     """
     cursor.execute(insert)

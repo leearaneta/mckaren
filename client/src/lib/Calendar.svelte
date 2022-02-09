@@ -1,9 +1,10 @@
 <script>
   import { createEventDispatcher } from 'svelte';
+  import _ from 'lodash';
 	import calendarize from 'calendarize';
 	import Arrow from './Arrow.svelte';
 
-  export let formatter = ({}) => '';
+  export let getDateClass = ({}) => '';
 	
   const today = new Date();
   let year = today.getFullYear();
@@ -45,8 +46,11 @@
 
   const dispatch = createEventDispatcher();
   function handleDateClick(date) {
-    dispatch('dateClick', date)
+    dispatch('click', date)
   }
+
+  let hoveredDate;
+
 </script>
 
 <header>
@@ -66,9 +70,8 @@
 				{#if current[idxw][idxd] != 0}
 					<div
             on:click={() => handleDateClick({ year, month, dayOfMonth: current[idxw][idxd] })}
-            class="date"
+            class={`date ${getDateClass({ year, month, dayOfMonth: current[idxw][idxd] })}`}
             class:today={isToday(current[idxw][idxd])}
-            style={formatter({ year, month, dayOfMonth: current[idxw][idxd]} )}
           >
 						<span class="text"> { current[idxw][idxd] } </span>
 					</div>
@@ -98,7 +101,6 @@
 	.month {
 		display: block;
 		text-align: center;
-		text-transform: uppercase;
 	}
 	
 	.grid {
@@ -113,7 +115,6 @@
 	.label {
 		font-weight: 400;
 		text-align: center;
-		text-transform: uppercase;
     font-size: 0.8rem;
 		opacity: 0.6;
 	}
