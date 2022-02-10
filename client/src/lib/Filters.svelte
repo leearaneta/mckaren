@@ -35,8 +35,9 @@
   }
 
   function subscribe() {
+    setMessage('subscribing...');
     request.post('/subscriptions', { email, filters: filters.map(formatFilterForPOSTRequest) })
-      .then(() => setMessage('yay it worked!'))
+      .then(() => setMessage('success !!'))
       .catch(() => setMessage('something broke :/'))
   }
 
@@ -72,9 +73,9 @@
         </div>
         <div class="length">
           for:
-          <label><input type="radio" bind:group={filter.hourLength} value={1} /> 1 hour </label>
-          <label><input type="radio" bind:group={filter.hourLength} value={2} /> 2 hours </label>
-          <label><input type="radio" bind:group={filter.hourLength} value={3} /> 3 hours? wow lol </label>
+          <label><input type="radio" bind:group={filter.hourLength} value={1} /> one hour </label>
+          <label><input type="radio" bind:group={filter.hourLength} value={2} /> two hours </label>
+          <label><input type="radio" bind:group={filter.hourLength} value={3} /> three hours </label>
         </div>
       </div>
     {/each}
@@ -91,6 +92,7 @@
     <input bind:value={email} class="email" placeholder="email" />
     <button
       class="subscribe"
+      class:message
       on:click={subscribe}
       disabled={!emailIsValid || formattedFilters.find(filter => filter.error)}
     >
@@ -122,6 +124,9 @@
   }
   .email, .subscribe {
     width: 48%;
+  }
+  .subscribe.message {
+    pointer-events: none;
   }
   .subscription {
     display: flex;

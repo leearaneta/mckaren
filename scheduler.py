@@ -4,9 +4,13 @@ import asyncio
 import aiohttp
 import psycopg2
 import psycopg2.extras
-from urllib.parse import urlencode, parse_qsl
+import yagmail
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
+from urllib.parse import urlencode, parse_qsl, quote
+from cryptography.fernet import Fernet
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
 
 def flatten(l):
     return [item for sublist in l for item in sublist]
@@ -64,7 +68,7 @@ async def get_all_court_times():
         all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date, session) for date in dates]))
         return all_court_times
 
-def get_openings(all_court_times, cursor):
+def get_openings(cursor, all_court_times):
     ts_format = "%Y-%m-%d %H:%M"
     def get_formatted_value(court_time):
         return f"({court_time['court']}, '{court_time['datetime'].strftime(ts_format)}')"
@@ -146,37 +150,88 @@ def get_urls_from_opening(opening):
     
     return [get_url_from_session_length(session_length, idx) for idx, session_length in enumerate(hours_spent_per_session)]
 
-def insert_openings(openings, cursor):
+def insert_openings(cursor, openings):
     ts_format = "%Y-%m-%d %H:%M"
     def get_formatted_value(opening):
         start_hour = opening['datetime'].hour + (opening['datetime'].minute / 60)
         end_hour = start_hour + opening['hour_length']
         weekday = opening['datetime'].weekday() + 1 # convert to postgres format
-        dt = f'{opening["datetime"].strftime(ts_format)} EST'
+        dt = f'{opening["datetime"].strftime(ts_format)}'
         urls = get_urls_from_opening(opening)
         return f"({opening['court']}, '{dt}', {weekday}, {opening['hour_length']}, {start_hour}, {end_hour}, ARRAY{urls})"
 
     values = [get_formatted_value(opening) for opening in openings]
     insert = f"""
-        CREATE TEMPORARY TABLE new_openings (court SMALLINT, datetime TEXT, day SMALLINT, hour_length SMALLINT, start_hour FLOAT, end_hour FLOAT, urls TEXT[]);
-        INSERT INTO new_openings VALUES {','.join(values)};
+        CREATE TEMPORARY TABLE current_openings (court SMALLINT, datetime TEXT, weekday SMALLINT, hour_length SMALLINT, start_hour FLOAT, end_hour FLOAT, urls TEXT[]);
+        INSERT INTO current_openings VALUES {','.join(values)};
     """
     cursor.execute(insert)
 
-def get_opening_diff(cursor):
-    compare = """
-        SELECT * FROM new_openings
-        EXCEPT
-        SELECT * FROM openings
+def get_subscribed_openings(cursor):
+    cursor.execute('SELECT * FROM current_openings EXCEPT SELECT * FROM openings')
+    new_openings = cursor.fetchall()
+    if len(new_openings) > 0:
+        print(len(new_openings), 'new openings!')
+    subscribed_openings = """
+        SELECT *
+        FROM (SELECT * FROM current_openings EXCEPT SELECT * FROM openings) new_openings
+        INNER JOIN subscriptions
+        ON new_openings.hour_length = subscriptions.hour_length
+        AND new_openings.start_hour >= subscriptions.min_start_hour
+        AND new_openings.end_hour <= subscriptions.max_end_hour
+        AND new_openings.weekday = ANY(subscriptions.weekdays)
+        WHERE new_openings.datetime::TIMESTAMP <= NOW() + interval '1 week'
     """
-    cursor.execute(compare)
+    cursor.execute(subscribed_openings)
     return cursor.fetchall()
+
+def group_subscribed_openings(subscribed_openings):
+    groups = {}
+    for opening in subscribed_openings:
+        email = opening['email']
+        groups.setdefault(email, [])
+        keys = ['datetime', 'hour_length', 'court', 'urls']
+        groups[email].append({ key: opening[key] for key in keys })
+    return groups
+
+def get_opening_html(opening):
+    dt = datetime.strptime(opening['datetime'], '%Y-%m-%d %H:%M')
+    date = dt.strftime('%a %b %d')
+    start_time = dt.strftime('%I:%M%p') 
+    end_time = (dt + timedelta(hours=opening['hour_length'])).strftime('%I:%M%p')
+    opening_details = f"{date}, {start_time} - {end_time} on Court {opening['court']}"
+    opening_details_html = f"<div style='display:inline-block;'> {opening_details} </div>"
+
+    booking_details_html = f"<a href='{opening['urls'][0]}'>book here</a>"
+    if len(opening['urls']) == 2:
+        booking_details_html += f" and <a href='{opening['urls'][1]}'>here</a>"
+    
+    return f"<div> {opening_details_html} => {booking_details_html} </div>"
+
+def get_email_html(email, openings):
+    encryption_key = os.environ.get('EMAIL_ENCRYPTION_KEY')
+    encrypted_email = Fernet(encryption_key).encrypt(email.encode()).decode()
+    unsubscribe_url = "https://mckaren.herokuapp.com/unsubscribe/" + encrypted_email
+    body_html = '\n'.join([get_opening_html(opening) for opening in openings])
+    return f"""
+        {body_html}
+        <div style="margin-top: 24px;"> xoxo </div>
+        <div style="margin-top: 12px;"><a href="{unsubscribe_url}"> unsubscribe </a></div>"""
+
+yag = yagmail.SMTP('mckarentennis', os.environ.get('EMAIL_APP_PASSWORD'))
+
+def send_emails(cursor):
+    subscribed_openings = get_subscribed_openings(cursor)
+    subscribed_openings_by_email = group_subscribed_openings(subscribed_openings)
+    for email, openings in subscribed_openings_by_email.items():
+        email_html = get_email_html(email, openings)
+        yag.send(email, 'new court openings!', email_html)
 
 def transfer_openings(cursor):
     transfer = """
         TRUNCATE openings;
         INSERT INTO openings
-            SELECT * from new_openings;
+            SELECT * from current_openings;
     """
     cursor.execute(transfer)
 
@@ -186,11 +241,21 @@ async def etl():
     conn = psycopg2.connect(conn_str)
     with conn:
         with conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cursor:
-            openings = get_openings(all_court_times, cursor)
-            insert_openings(openings, cursor)
-            opening_diff = get_opening_diff(cursor)
+            openings = get_openings(cursor, all_court_times)
+            insert_openings(cursor, openings)
+            send_emails(cursor)
             transfer_openings(cursor)
     conn.commit()
     conn.close()
     print('done!')
-    return opening_diff
+
+async def main():
+    print('\nPress Ctrl-C to quit at anytime!\n')
+    scheduler = AsyncIOScheduler()
+    scheduler.add_job(etl, "interval", seconds=60)
+    scheduler.start()
+
+if __name__ == "__main__":
+    loop = asyncio.get_event_loop()
+    loop.create_task(main())
+    loop.run_forever()

@@ -3,6 +3,7 @@ import psycopg2
 import psycopg2.extras
 from flask import Flask, request, jsonify, send_from_directory
 from flask_cors import CORS
+from cryptography.fernet import Fernet
 
 
 app = Flask(__name__)
@@ -46,4 +47,18 @@ def subscriptions():
         conn.commit()
         conn.close()
         return {}
+
+# this should probably be a DELETE or something
+# but it's only accessed through the email which has no javascript
+@app.route("/unsubscribe/<email>")
+def unsubscribe(email):
+    encryption_key = os.environ.get('EMAIL_ENCRYPTION_KEY')
+    decrypted_email = Fernet(encryption_key).decrypt(email.encode()).decode()
+    conn = psycopg2.connect(conn_str)
+    with conn:
+        with conn.cursor(cursor_factory = psycopg2.extras.RealDictCursor) as cursor:
+            cursor.execute("DELETE FROM subscriptions WHERE email = %s;", (decrypted_email,))
+    conn.commit()
+    conn.close()
+    return f'<div> unsubscribed {decrypted_email}! </div>'
 

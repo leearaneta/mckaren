@@ -5,7 +5,7 @@
   export let openings;
   const margin = 10;
   const width = 1500;
-  const height = 360;
+  const height = 320;
   const fontSize = width / 80;
   const minX = -margin / 2;
   const minY = -margin / 2;
