@@ -54,9 +54,22 @@
       year: Number(year), month: Number(month), dayOfMonth: Number(dayOfMonth),
       weekday: _weekday, startHour, endHour, hourLength };
   }
+
   $: {
     request.get('/openings').then(res => openings = res.data.map(formatOpening));
   }
+
+  // refresh data every minute when window is active;
+  let timer = 0;
+  setInterval(() => {
+    if (timer < 60) {
+      timer += 1;
+    } else if (!document.hidden) {
+      request.get('/openings').then(res => openings = res.data.map(formatOpening));
+      timer = 0;
+    }
+  }, 1000);
+
 
   function openingPassesFilter(opening, filter) {
     const weekdayPassesFilter = filter.weekdays[opening.weekday];
