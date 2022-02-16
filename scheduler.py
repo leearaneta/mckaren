@@ -173,29 +173,30 @@ def get_subscribed_openings(cursor):
     if len(new_openings) > 0:
         print(len(new_openings), 'new openings!')
     subscribed_openings = """
-        SELECT *
-        FROM (SELECT * FROM current_openings EXCEPT SELECT * FROM openings) new_openings
+        SELECT datetime::TIMESTAMP, hour_length, court, urls, email
+        FROM (SELECT * FROM current_openings EXCEPT SELECT * FROM openings) as new_openings
         INNER JOIN subscriptions
-        ON new_openings.hour_length = subscriptions.hour_length
-        AND new_openings.start_hour >= subscriptions.min_start_hour
-        AND new_openings.end_hour <= subscriptions.max_end_hour
-        AND new_openings.weekday = ANY(subscriptions.weekdays)
-        WHERE new_openings.datetime::TIMESTAMP <= NOW() + interval '1 week'
+        USING (hour_length)
+        WHERE datetime::TIMESTAMP <= NOW() + interval '1 week'
+        AND start_hour >= min_start_hour
+        AND end_hour <= max_end_hour
+        AND weekday = ANY(weekdays)
     """
     cursor.execute(subscribed_openings)
     return cursor.fetchall()
 
-def group_subscribed_openings(subscribed_openings):
-    groups = {}
-    for opening in subscribed_openings:
+def group_subscribed_openings_by_email(openings):
+    openings_by_email = {}
+    for opening in openings:
         email = opening['email']
-        groups.setdefault(email, [])
-        keys = ['datetime', 'hour_length', 'court', 'urls']
-        groups[email].append({ key: opening[key] for key in keys })
-    return groups
+        openings_by_email.setdefault(email, [])
+        openings_by_email[email].append(opening)
+    for openings in openings_by_email.values():
+        openings.sort(key=lambda opening: (opening['datetime'].timestamp(), opening['court']))
+    return openings_by_email
 
 def get_opening_html(opening):
-    dt = datetime.strptime(opening['datetime'], '%Y-%m-%d %H:%M')
+    dt = opening['datetime']
     date = dt.strftime('%a %b %d')
     start_time = dt.strftime('%I:%M%p') 
     end_time = (dt + timedelta(hours=opening['hour_length'])).strftime('%I:%M%p')
@@ -222,7 +223,7 @@ yag = yagmail.SMTP('mckarentennis', os.environ.get('EMAIL_APP_PASSWORD'))
 
 def send_emails(cursor):
     subscribed_openings = get_subscribed_openings(cursor)
-    subscribed_openings_by_email = group_subscribed_openings(subscribed_openings)
+    subscribed_openings_by_email = group_subscribed_openings_by_email(subscribed_openings)
     for email, openings in subscribed_openings_by_email.items():
         email_html = get_email_html(email, openings)
         yag.send(email, 'new court openings!', email_html)
