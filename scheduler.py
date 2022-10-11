@@ -62,7 +62,7 @@ async def get_court_times_for_date(date, session):
     
 async def get_all_court_times():
     start = datetime.today()
-    end = datetime.strptime('2022-04-28', '%Y-%m-%d')
+    end = datetime.strptime(os.environ.get('END_DATE'), '%Y-%m-%d')
     dates = [start + timedelta(days=x) for x in range((end - start).days)]
     async with aiohttp.ClientSession() as session:
         all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date, session) for date in dates]))
