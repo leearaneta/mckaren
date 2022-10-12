@@ -79,9 +79,9 @@ def get_openings(cursor, all_court_times):
         INSERT INTO court_times VALUES {','.join(values)};
     """
     cursor.execute(insert)
-    openings = """
+    openings = f"""
         CREATE TEMPORARY TABLE interval_start AS
-            SELECT generate_series(date_trunc('hour', now())::TIMESTAMP, '2022-04-29 00:00'::TIMESTAMP, '30m') as datetime;
+            SELECT generate_series(date_trunc('hour', now())::TIMESTAMP, '{os.environ.get('END_DATE')} 00:00'::TIMESTAMP, '30m') as datetime;
         SELECT interval_start.datetime, court, 2 as hour_length
         FROM interval_start
         INNER JOIN court_times
