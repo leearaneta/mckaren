@@ -38,10 +38,9 @@ async def fetch(url, session, attempt_number=1):
                 return re.search(regexp, response_text).group(0).encode('utf-8').decode('unicode-escape')
     except Exception as e:
         if attempt_number >= 3:
-            print("unable to fetch {}".format(url))
+            print(e)
             return []
         else:
-            print("retrying {}".format(url))
             return await fetch(url, session, attempt_number+1)
 
 async def get_court_times_for_date(date, session):
@@ -253,7 +252,7 @@ async def etl():
 async def main():
     print('\nPress Ctrl-C to quit at anytime!\n')
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(etl, "interval", seconds=60)
+    scheduler.add_job(etl, "interval", seconds=os.environ.get('FETCH_INTERVAL_SECONDS') or 60)
     scheduler.start()
 
 if __name__ == "__main__":
