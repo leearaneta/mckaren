@@ -5,6 +5,8 @@ import aiohttp
 import psycopg2
 import psycopg2.extras
 import yagmail
+import random
+from aiohttp_socks import ProxyConnector
 from datetime import datetime, timedelta
 from bs4 import BeautifulSoup
 from urllib.parse import urlencode, parse_qsl, quote
@@ -29,13 +31,22 @@ def parse_court_times_for_session(html):
 
 sem = asyncio.Semaphore(3)
 
-async def fetch(url, session, attempt_number=1):
+async def fetch(url, attempt_number=1):
     regexp = r'(?<=":")(.*)(?=\\n")'
     try:
-        async with session.get(url=url) as response:
-            async with sem:
-                response_text = await response.text()
-                return re.search(regexp, response_text).group(0).encode('utf-8').decode('unicode-escape')
+        kwargs = {}
+        tor_password = os.environ.get('TOR_CONTROL_PASS')
+        if tor_password:
+            username = str(random.randint(10000,0x7fffffff))
+            creds = f"{username}:{tor_password}"
+            proxy_url = f"socks5://{creds}@localhost:9050"
+            connector = ProxyConnector.from_url(proxy_url)
+            kwargs["connector"] = connector
+        async with aiohttp.ClientSession(**kwargs) as session:
+            async with session.get(url) as response:
+                async with sem:
+                    response_text = await response.text()
+                    return re.search(regexp, response_text).group(0).encode('utf-8').decode('unicode-escape')
     except Exception as e:
         if attempt_number >= 3:
             try:
@@ -44,14 +55,14 @@ async def fetch(url, session, attempt_number=1):
                 print(e)
             return []
         else:
-            return await fetch(url, session, attempt_number+1)
+            return await fetch(url, attempt_number+1)
 
-async def get_court_times_for_date(date, session):
+async def get_court_times_for_date(date):
     formatted_date = date.strftime('%Y-%m-%d')
     session_ids = [35, 25, 29] if date.weekday() in [5, 6] else [14, 5, 18, 1128]
     base_url = 'https://widgets.mindbodyonline.com/widgets/appointments/8f25324d818/results.json?callback=%3F&callback=jQuery18108096050440047702_1638908795555&utf8=%E2%9C%93&options%5Bsession_type_ids%5D={session_id}&options%5Bstaff_ids%5D%5B%5D=&options%5Bstart_date%5D={date}&options%5Bend_date%5D={date}'
     urls = [base_url.format(date=formatted_date, session_id=session_id) for session_id in session_ids]
-    responses = await asyncio.gather(*[fetch(url, session) for url in urls])
+    responses = await asyncio.gather(*[fetch(url) for url in urls])
     court_times = flatten([parse_court_times_for_session(html) for html in responses if html])
 
     def format_court_time(court_time):
@@ -66,9 +77,8 @@ async def get_all_court_times():
     start = datetime.today()
     end = datetime.strptime(os.environ.get('END_DATE'), '%Y-%m-%d')
     dates = [start + timedelta(days=x) for x in range((end - start).days)]
-    async with aiohttp.ClientSession() as session:
-        all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date, session) for date in dates]))
-        return all_court_times
+    all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date) for date in dates]))
+    return all_court_times
 
 def get_openings(cursor, all_court_times):
     ts_format = "%Y-%m-%d %H:%M"
