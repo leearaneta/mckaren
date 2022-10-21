@@ -46,11 +46,11 @@ async def fetch(url, session, attempt_number=1):
         else:
             return await fetch(url, session, attempt_number+1)
 
-async def get_court_times_for_date(date, session):
+async def get_court_times_for_date(date, session, base_url):
     formatted_date = date.strftime('%Y-%m-%d')
     session_ids = [35, 25, 29] if date.weekday() in [5, 6] else [14, 5, 18, 1128]
-    base_url = 'https://widgets.mindbodyonline.com/widgets/appointments/8f25324d818/results.json?callback=%3F&callback=jQuery18108096050440047702_1638908795555&utf8=%E2%9C%93&options%5Bsession_type_ids%5D={session_id}&options%5Bstaff_ids%5D%5B%5D=&options%5Bstart_date%5D={date}&options%5Bend_date%5D={date}'
-    urls = [base_url.format(date=formatted_date, session_id=session_id) for session_id in session_ids]
+    url_template = '{base_url}/widgets/appointments/8f25324d818/results.json?callback=%3F&callback=jQuery18108096050440047702_1638908795555&utf8=%E2%9C%93&options%5Bsession_type_ids%5D={session_id}&options%5Bstaff_ids%5D%5B%5D=&options%5Bstart_date%5D={date}&options%5Bend_date%5D={date}'
+    urls = [url_template.format(base_url=base_url, date=formatted_date, session_id=session_id) for session_id in session_ids]
     responses = await asyncio.gather(*[fetch(url, session) for url in urls])
     court_times = flatten([parse_court_times_for_session(html) for html in responses if html])
 
@@ -61,13 +61,22 @@ async def get_court_times_for_date(date, session):
         return {"court": court, "datetime": dt}
 
     return [format_court_time(court_time) for court_time in court_times]
+
+proxy_urls = [ val for key, val in os.environ.items() if re.compile(r'PROXY_URL\w+').match(key) ]
+base_urls = ['https://widgets.mindbodyonline.com'] + proxy_urls
+
+def get_base_url():
+    base_url = base_urls.pop()
+    base_urls.insert(0, base_url)
+    return base_url
     
 async def get_all_court_times():
     start = datetime.today()
     end = datetime.strptime(os.environ.get('END_DATE'), '%Y-%m-%d')
     dates = [start + timedelta(days=x) for x in range((end - start).days)]
+    base_url = get_base_url()
     async with aiohttp.ClientSession() as session:
-        all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date, session) for date in dates]))
+        all_court_times = flatten(await asyncio.gather(*[get_court_times_for_date(date, session, base_url) for date in dates]))
         return all_court_times
 
 def get_openings(cursor, all_court_times):
