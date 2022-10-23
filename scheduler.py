@@ -38,10 +38,7 @@ async def fetch(url, session, attempt_number=1):
                 return re.search(regexp, response_text).group(0).encode('utf-8').decode('unicode-escape')
     except Exception as e:
         if attempt_number >= 3:
-            try:
-                print(response_text)
-            except:
-                print(e)
+            print(e)
             return []
         else:
             return await fetch(url, session, attempt_number+1)
