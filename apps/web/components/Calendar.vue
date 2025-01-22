@@ -1,0 +1,223 @@
+<template>
+  <div class="calendar">
+    <header>
+      <Arrow left @click="toPrev" />
+      <div class="month">{{ months[month] }} {{ year }}</div>
+      <Arrow @click="toNext" />
+    </header>
+
+    <div class="grid">
+      <span 
+        v-for="(label, idx) in labels" 
+        :key="label" 
+        class="label"
+      >
+        {{ labels[(idx + offset) % 7] }}
+      </span>
+
+      <template v-for="week in 6">
+        <template v-if="current[week - 1]">
+          <template v-for="day in 7">
+            <template v-if="current[week - 1][day - 1] !== 0">
+              <div
+                :key="`current-${week}-${day}`"
+                class="date"
+                :class="{
+                  today: isToday(current[week - 1][day - 1]),
+                  'has-openings': hasOpenings({ year, month, dayOfMonth: current[week - 1][day - 1] })
+                }"
+                @click="handleDateClick({ year, month, dayOfMonth: current[week - 1][day - 1] })"
+              >
+                <span class="text">{{ current[week - 1][day - 1] }}</span>
+              </div>
+            </template>
+            <template v-else-if="week < 2">
+              <div :key="`prev-${week}-${day}`" class="date other">
+                <span class="text">{{ prev[prev.length - 1][day - 1] }}</span>
+              </div>
+            </template>
+            <template v-else>
+              <div :key="`next-${week}-${day}`" class="date other">
+                <span class="text">{{ next[0][day - 1] }}</span>
+              </div>
+            </template>
+          </template>
+        </template>
+      </template>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+import Arrow from './Arrow.vue'
+import type { HalfHourOpening } from '@mckaren/types'
+
+const props = defineProps<{
+  modelValue: Date
+  validDates: Date[]
+}>()
+
+const emit = defineEmits<{
+  (e: 'update:modelValue', value: Date): void
+}>()
+
+const today = new Date()
+const year = ref(today.getFullYear())
+const month = ref(today.getMonth())
+const offset = 0 // Sun
+
+const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+function calendarize(date: Date, offset: number) {
+  const year = date.getFullYear()
+  const month = date.getMonth()
+  
+  const firstDay = new Date(year, month, 1)
+  const lastDay = new Date(year, month + 1, 0)
+  
+  const calendar: number[][] = []
+  let week: number[] = Array(7).fill(0)
+  
+  // Fill in the first week with previous month's days
+  let dayOfWeek = (firstDay.getDay() - offset + 7) % 7
+  let day = 1
+  
+  for (let i = dayOfWeek; i < 7; i++) {
+    week[i] = day++
+  }
+  
+  // Fill in the rest of the weeks
+  while (day <= lastDay.getDate()) {
+    if (dayOfWeek === 7) {
+      calendar.push(week)
+      week = Array(7).fill(0)
+      dayOfWeek = 0
+    }
+    week[dayOfWeek++] = day++
+  }
+  
+  // Add the last week
+  calendar.push(week)
+  
+  // Fill in any remaining days with next month's days
+  if (dayOfWeek < 7) {
+    let nextDay = 1
+    while (dayOfWeek < 7) {
+      week[dayOfWeek++] = nextDay++
+    }
+  }
+  
+  return calendar
+}
+
+const prev = computed(() => calendarize(new Date(year.value, month.value - 1), offset))
+const current = computed(() => calendarize(new Date(year.value, month.value), offset))
+const next = computed(() => calendarize(new Date(year.value, month.value + 1), offset))
+
+function toPrev() {
+  if (month.value === 0) {
+    month.value = 11
+    year.value--
+  } else {
+    month.value--
+  }
+}
+
+function toNext() {
+  if (month.value === 11) {
+    month.value = 0
+    year.value++
+  } else {
+    month.value++
+  }
+}
+
+function isToday(day: number) {
+  return year.value === today.getFullYear() && 
+         month.value === today.getMonth() && 
+         day === today.getDate()
+}
+
+function handleDateClick({ year, month, dayOfMonth }: { year: number, month: number, dayOfMonth: number }) {
+  emit('update:modelValue', new Date(year, month, dayOfMonth))
+}
+
+function isSameDay(date1: Date, date2: Date): boolean {
+  return date1.getFullYear() === date2.getFullYear() &&
+         date1.getMonth() === date2.getMonth() &&
+         date1.getDate() === date2.getDate()
+}
+
+function hasOpenings({ year, month, dayOfMonth }: { year: number, month: number, dayOfMonth: number }) {
+  const date = new Date(year, month, dayOfMonth)
+  return props.validDates.some(validDate => isSameDay(validDate, date))
+}
+</script>
+
+<style scoped>
+.calendar {
+  width: 100%;
+  max-width: 300px;
+}
+
+header {
+  display: flex;
+  margin-bottom: 1rem;
+  align-items: center;
+  justify-content: center;
+  user-select: none;
+}
+
+.month {
+  display: block;
+  text-align: center;
+}
+
+.grid {
+  display: grid;
+  grid-template-rows: 5% auto;
+  grid-template-columns: repeat(7, 1fr);
+  text-align: right;
+  height: 90%;
+  grid-gap: 2px;
+}
+
+.label {
+  font-weight: 400;
+  text-align: center;
+  font-size: 0.8rem;
+  opacity: 0.6;
+}
+
+.date {
+  border: 1px solid #bbbbbb;
+  position: relative;
+  aspect-ratio: 1;
+  cursor: pointer;
+}
+
+.date:hover {
+  background-color: #f3f4f6;
+}
+
+.date.today {
+  color: #5286fa;
+  border-color: currentColor;
+}
+
+.date.has-openings {
+  background-color: #c4d9fd;
+}
+
+.date.other {
+  opacity: 0.2;
+}
+
+.text {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  font-size: 0.8rem;
+}
+</style> 

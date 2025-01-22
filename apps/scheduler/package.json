@@ -1,0 +1,25 @@
+{
+  "name": "@mckaren/scheduler",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc",
+    "start": "node dist/etl/main.js",
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "@types/pg": "^8.11.10",
+    "tsx": "^4.0.0",
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "@mckaren/db": "workspace:*",
+    "@mckaren/types": "workspace:*",
+    "dotenv": "^16.3.1",
+    "pg": "^8.13.1",
+    "puppeteer": "^21.0.0"
+  }
+}
