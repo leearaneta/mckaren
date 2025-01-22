@@ -24,7 +24,8 @@
                 class="date"
                 :class="{
                   today: isToday(current[week - 1][day - 1]),
-                  'has-openings': hasOpenings({ year, month, dayOfMonth: current[week - 1][day - 1] })
+                  'has-openings': hasOpenings({ year, month, dayOfMonth: current[week - 1][day - 1] }),
+                  selected: isSelected(current[week - 1][day - 1])
                 }"
                 @click="handleDateClick({ year, month, dayOfMonth: current[week - 1][day - 1] })"
               >
@@ -151,6 +152,12 @@ function hasOpenings({ year, month, dayOfMonth }: { year: number, month: number,
   const date = new Date(year, month, dayOfMonth)
   return props.validDates.some(validDate => isSameDay(validDate, date))
 }
+
+function isSelected(day: number) {
+  return year.value === props.modelValue.getFullYear() && 
+         month.value === props.modelValue.getMonth() && 
+         day === props.modelValue.getDate()
+}
 </script>
 
 <style scoped>
@@ -217,5 +224,23 @@ header {
   top: 4px;
   right: 4px;
   font-size: 0.8rem;
+}
+
+.date.selected {
+  background-color: #5286fa;
+  color: white;
+  border-color: #5286fa;
+}
+
+.date.selected:hover {
+  background-color: #4070e0;
+}
+
+.date.selected.has-openings {
+  background-color: #5286fa;
+}
+
+.date.today.selected {
+  color: white;
 }
 </style> 

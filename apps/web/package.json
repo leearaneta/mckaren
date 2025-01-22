@@ -10,11 +10,13 @@
   },
   "dependencies": {
     "@mckaren/db": "workspace:*",
-    "@mckaren/types": "workspace:*"
+    "@mckaren/types": "workspace:*",
+    "@pinia/nuxt": "^0.9.0",
+    "pinia": "^2.3.1"
   },
   "devDependencies": {
-    "nuxt": "^3.9.0",
     "@nuxtjs/tailwindcss": "^6.10.3",
+    "nuxt": "^3.9.0",
     "postcss": "^8.4.33",
     "tailwindcss": "^3.4.1"
   }

@@ -9,10 +9,13 @@
         class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100"
         @click="condensed = !condensed"
       >
-        {{ condensed ? 'Show All Courts' : 'Condense View' }}
+        {{ condensed ? 'Show all courts' : 'Condense view' }}
       </button>
     </div>
-    <svg :viewBox="`${minX} ${minY} ${maxX} ${maxY}`">
+    <svg 
+      v-if="facility.courts.length > 0"
+      :viewBox="`${minX} ${minY} ${maxX} ${maxY}`"
+    >
       <!-- Horizontal lines for courts -->
       <line
         v-for="pos in xLinePositions"
@@ -26,7 +29,7 @@
       
       <!-- Court labels -->
       <text
-        v-for="(court, idx) in condensed ? ['All Courts'] : sortedCourts"
+        v-for="(court, idx) in condensed ? ['All courts'] : sortedCourts"
         :key="court"
         :x="0"
         :y="xTextPositions[idx]"
@@ -119,27 +122,31 @@ const maxY = computed(() =>
 // Courts setup
 const sortedCourts = computed(() => [...props.facility.courts].sort())
 
+// Line positions
 const xLineCount = computed(() => condensed.value ? 2 : sortedCourts.value.length + 1)
 const xLineStart = headerHeight
-const xLinePositions = Array.from(
+const xLinePositions = computed(() => Array.from(
   { length: xLineCount.value }, 
   (_, idx) => idx * rowHeight + xLineStart
-)
-const xTextPositions = xLinePositions
-  .slice(0, xLinePositions.length - 1)
+))
+const xTextPositions = computed(() => xLinePositions.value
+  .slice(0, xLinePositions.value.length - 1)
   .map(pos => pos + (rowHeight / 2))
+)
 
 // Time setup
 const dayStartHour = 6
-const allCourtTimes = [
+const allCourtTimes = computed(() => [
   ...Array.from({ length: 12 - dayStartHour }, (_, i) => `${i + dayStartHour}AM`),
   '12PM',
   ...Array.from({ length: 11 }, (_, i) => `${i + 1}PM`),
-]
+])
 const yLineStart = width / 6
-const yLineCount = allCourtTimes.length
-const yLineSpacing = (width - yLineStart) / yLineCount
-const yLinePositions = Array.from({ length: yLineCount }, (_, idx) => idx * yLineSpacing + yLineStart)
+const yLineCount = computed(() => allCourtTimes.value.length)
+const yLineSpacing = computed(() => (width - yLineStart) / yLineCount.value)
+const yLinePositions = computed(() => 
+  Array.from({ length: yLineCount.value }, (_, idx) => idx * yLineSpacing.value + yLineStart)
+)
 
 // Computed
 const formattedDate = computed(() => {
@@ -234,9 +241,9 @@ function getRectAttrsForChunk(chunk: OpeningChunk) {
   // Calculate width based on duration
   const durationInHours = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60)
   
-  const x = timeOffset * yLineSpacing + yLineStart
-  const rectWidth = yLineSpacing * durationInHours
-  const y = xLinePositions[courtIndex]
+  const x = timeOffset * yLineSpacing.value + yLineStart
+  const rectWidth = yLineSpacing.value * durationInHours
+  const y = xLinePositions.value[courtIndex]
   const height = rowHeight
   
   return {
