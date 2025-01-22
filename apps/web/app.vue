@@ -12,7 +12,7 @@
     
     <div v-else>
       <!-- Global controls -->
-      <div class="bg-white rounded-lg shadow p-4 mb-8">
+      <div class="bg-white rounded-lg shadow py-6 px-4 mb-8">
         <div class="flex gap-8 max-w-3xl">
           <!-- Left column: Calendar -->
           <div class="w-80">
@@ -27,6 +27,12 @@
             <!-- Selected date -->
             <div class="text-xl font-medium mb-4">
               {{ selectedDate.toDateString() }}
+            </div>
+
+            <div class="mb-4">
+              <div v-if="endHour <= startHour" class="text-sm text-red-500">
+                End time must be after start time
+              </div>
             </div>
 
             <!-- Facility filters -->
@@ -121,11 +127,84 @@
                   </select>
                 </label>
               </div>
-              
-              <div v-if="endHour <= startHour" class="text-sm text-red-500">
-                End time must be after start time
-              </div>
             </div>
+
+            <!-- Filter courts button -->
+            <div>
+              <button 
+                class="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                @click="showCourtFilter = true"
+              >
+                Filter Courts
+              </button>
+            </div>
+
+          </div>
+        </div>
+      </div>
+      
+      <!-- Court filter modal -->
+      <div 
+        v-if="showCourtFilter"
+        class="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center"
+        @click.self="showCourtFilter = false"
+      >
+        <div class="bg-white rounded-lg p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto">
+          <div class="flex justify-between items-center mb-4">
+            <h2 class="text-xl font-medium">Filter Courts</h2>
+            <button 
+              class="text-gray-500 hover:text-gray-700"
+              @click="showCourtFilter = false"
+            >
+              ✕
+            </button>
+          </div>
+          
+          <!-- Facility selector -->
+          <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+              Select Facility:
+            </label>
+            <select 
+              v-model="selectedFacilityInModal"
+              class="w-full rounded-lg border-gray-300 pl-2 h-10"
+            >
+              <option 
+                v-for="facility in filteredFacilities" 
+                :key="facility.name"
+                :value="facility.name"
+              >
+                {{ facility.name }}
+              </option>
+            </select>
+          </div>
+          
+          <!-- Court checkboxes -->
+          <div v-if="selectedFacilityInModal" class="space-y-4">
+            <div class="flex flex-wrap gap-2">
+              <label 
+                v-for="court in facilities?.find(f => f.name === selectedFacilityInModal)?.courts.sort()" 
+                :key="court"
+                class="flex items-center space-x-2 px-3 py-2 bg-gray-50 rounded-lg hover:bg-gray-100"
+              >
+                <input
+                  type="checkbox"
+                  v-model="selectedCourts[selectedFacilityInModal]"
+                  :value="court"
+                  class="rounded text-blue-600"
+                >
+                <span>{{ court }}</span>
+              </label>
+            </div>
+          </div>
+          
+          <div class="mt-6 flex justify-end">
+            <button 
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              @click="showCourtFilter = false"
+            >
+              Done
+            </button>
           </div>
         </div>
       </div>
@@ -137,10 +216,12 @@
           :key="facility.name" 
           class="bg-white rounded-lg shadow p-4"
         >
-          
           <Timeline 
             :openings="getOpeningsForFacility(facility.name)"
-            :facility="facility"
+            :facility="{
+              ...facility,
+              courts: selectedCourts[facility.name] || []
+            }"
             :date="selectedDate"
             :condensed="condensedViews[facility.name]"
           />
@@ -165,23 +246,41 @@ interface Opening {
 // State
 const selectedDate = ref(new Date())
 const selectedFacilities = ref<string[]>([])
-const selectedDays = ref<number[]>([0, 1, 2, 3, 4, 5, 6]) // Initialize with all days selected
+const selectedDays = ref<number[]>([0, 1, 2, 3, 4, 5, 6])
 const minimumDuration = ref(30)
-const startHour = ref(6) // Default to 6 AM
-const endHour = ref(24) // Default to 10 PM
+const startHour = ref(6)
+const endHour = ref(24)
 const condensedViews = ref<Record<string, boolean>>({})
+const showCourtFilter = ref(false)
+const selectedCourts = ref<Record<string, string[]>>({})
+const selectedFacilityInModal = ref<string>('')
 
 // Fetch data
 const { data: openings, pending, error } = await useFetch<HalfHourOpening[]>('/api/half-hour-openings')
 const { data: facilities, pending: facilitiesPending, error: facilitiesError } = await useFetch<Facility[]>('/api/facilities')
 const { data: longerOpenings } = await useFetch<Opening[]>('/api/openings')
 
-// Initialize selected facilities when data is loaded
+// Initialize selected courts when facilities load
 watch(facilities, (newFacilities) => {
-  if (newFacilities && selectedFacilities.value.length === 0) {
-    selectedFacilities.value = newFacilities.map(f => f.name)
+  if (newFacilities) {
+    if (selectedFacilities.value.length === 0) {
+      selectedFacilities.value = newFacilities.map(f => f.name)
+    }
+    // Initialize selected courts for each facility
+    newFacilities.forEach(facility => {
+      if (!selectedCourts.value[facility.name]) {
+        selectedCourts.value[facility.name] = [...facility.courts]
+      }
+    })
   }
 }, { immediate: true })
+
+// Watch for modal opening to set initial facility
+watch(showCourtFilter, (isOpen) => {
+  if (isOpen && filteredFacilities.value.length > 0) {
+    selectedFacilityInModal.value = filteredFacilities.value[0].name
+  }
+})
 
 // Computed
 const filteredFacilities = computed(() => {
@@ -195,11 +294,12 @@ const validHalfHourOpenings = computed(() => {
   return openings.value.filter(opening => {
     // Check if within selected days
     const openingDate = new Date(opening.datetime)
-    console.log(selectedDays.value, openingDate.getDay())
     if (!selectedDays.value.includes(openingDate.getDay())) return false
     
-    // Check if within selected facilities
-    if (!filteredFacilities.value.some(facility => facility.name === opening.facility)) return false
+    // Check if within selected facilities and courts
+    const facility = filteredFacilities.value.find(f => f.name === opening.facility)
+    if (!facility) return false
+    if (!selectedCourts.value[facility.name]?.includes(opening.court)) return false
     
     // Check if within selected time range
     const hour = openingDate.getHours()

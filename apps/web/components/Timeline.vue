@@ -26,7 +26,7 @@
       
       <!-- Court labels -->
       <text
-        v-for="(court, idx) in condensed ? ['All Courts'] : facility.courts"
+        v-for="(court, idx) in condensed ? ['All Courts'] : sortedCourts"
         :key="court"
         :x="0"
         :y="xTextPositions[idx]"
@@ -117,7 +117,9 @@ const maxY = computed(() =>
 )
 
 // Courts setup
-const xLineCount = computed(() => condensed.value ? 2 : props.facility.courts.length + 1)
+const sortedCourts = computed(() => [...props.facility.courts].sort())
+
+const xLineCount = computed(() => condensed.value ? 2 : sortedCourts.value.length + 1)
 const xLineStart = headerHeight
 const xLinePositions = Array.from(
   { length: xLineCount.value }, 
@@ -147,8 +149,15 @@ const formattedDate = computed(() => {
 const chunks = computed(() => {
   if (!props.openings.length) return []
   
+  // Filter openings to only include selected courts
+  const validOpenings = props.openings.filter(opening => 
+    props.facility.courts.includes(opening.court)
+  )
+  
+  if (!validOpenings.length) return []
+  
   // Sort openings by time only in condensed view, by court and time otherwise
-  const sortedOpenings = [...props.openings].sort((a, b) => {
+  const sortedOpenings = [...validOpenings].sort((a, b) => {
     if (!condensed.value) {
       const courtCompare = a.court.localeCompare(b.court)
       if (courtCompare !== 0) return courtCompare
@@ -215,7 +224,7 @@ function getRectAttrsForChunk(chunk: OpeningChunk) {
   const endDate = new Date(chunk.endTime)
   const startHour = startDate.getHours()
   const startMinutes = startDate.getMinutes()
-  const courtIndex = condensed.value ? 0 : props.facility.courts.indexOf(chunk.court)
+  const courtIndex = condensed.value ? 0 : sortedCourts.value.indexOf(chunk.court)
   
   // Calculate position based on both hours and minutes
   const hourOffset = startHour - dayStartHour // Hours since 6AM
