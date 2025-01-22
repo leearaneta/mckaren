@@ -1,72 +1,84 @@
 <template>
-  <svg :viewBox="`${minX} ${minY} ${maxX} ${maxY}`">
-    <text :x="0" :y="headerHeight - 5" :font-size="fontSize * 1.2">
-      {{ formattedDate }}
-    </text>
-    
-    <!-- Horizontal lines for courts -->
-    <line
-      v-for="pos in xLinePositions"
-      :key="pos"
-      stroke="rgba(0, 0, 0, .5)"
-      :x1="0"
-      :x2="width"
-      :y1="pos"
-      :y2="pos"
-    />
-    
-    <!-- Court labels -->
-    <text
-      v-for="(court, idx) in facility.courts"
-      :key="court"
-      :x="0"
-      :y="xTextPositions[idx]"
-      :font-size="fontSize"
-    >
-      {{ court }}
-    </text>
-    
-    <!-- Vertical time lines -->
-    <line
-      v-for="pos in yLinePositions"
-      :key="pos"
-      stroke="rgba(0, 0, 0, .25)"
-      :x1="pos"
-      :x2="pos"
-      :y1="headerHeight"
-      :y2="maxY - margin"
-    />
-    
-    <!-- Time labels -->
-    <text
-      v-for="(time, idx) in allCourtTimes"
-      :key="time"
-      :x="yLinePositions[idx]"
-      :y="headerHeight - 5"
-      text-anchor="middle"
-      :font-size="fontSize"
-      opacity="0.75"
-    >
-      {{ time }}
-    </text>
-    
-    <!-- Opening rectangles -->
-    <rect
-      v-for="chunk in chunks"
-      :key="`${chunk.court}-${chunk.startTime}-${chunk.endTime}`"
-      v-bind="getRectAttrsForChunk(chunk)"
-      @mouseover="hoveredChunk = chunk"
-      @mouseout="hoveredChunk = null"
-    />
-    
-    <!-- Hovered opening highlight -->
-    <rect
-      v-if="hoveredChunk"
-      v-bind="getRectAttrsForChunk(hoveredChunk)"
-      fill="#5286fa"
-      pointer-events="none"
-    />
-  </svg>
+  <div>
+    <div class="flex justify-between items-center mb-2">
+      <div>
+        <h3 class="text-lg font-medium">{{ facility.name }}</h3>
+        <div class="text-sm text-gray-600">{{ formattedDate }}</div>
+      </div>
+      <button 
+        class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100"
+        @click="condensed = !condensed"
+      >
+        {{ condensed ? 'Show All Courts' : 'Condense View' }}
+      </button>
+    </div>
+    <svg :viewBox="`${minX} ${minY} ${maxX} ${maxY}`">
+      <!-- Horizontal lines for courts -->
+      <line
+        v-for="pos in xLinePositions"
+        :key="pos"
+        stroke="rgba(0, 0, 0, .5)"
+        :x1="0"
+        :x2="width"
+        :y1="pos"
+        :y2="pos"
+      />
+      
+      <!-- Court labels -->
+      <text
+        v-for="(court, idx) in condensed ? ['All Courts'] : facility.courts"
+        :key="court"
+        :x="0"
+        :y="xTextPositions[idx]"
+        :font-size="fontSize"
+      >
+        {{ court }}
+      </text>
+      
+      <!-- Vertical time lines -->
+      <line
+        v-for="pos in yLinePositions"
+        :key="pos"
+        stroke="rgba(0, 0, 0, .25)"
+        :x1="pos"
+        :x2="pos"
+        :y1="headerHeight"
+        :y2="maxY - margin"
+      />
+      
+      <!-- Time labels -->
+      <text
+        v-for="(time, idx) in allCourtTimes"
+        :key="time"
+        :x="yLinePositions[idx]"
+        :y="headerHeight - 5"
+        text-anchor="middle"
+        :font-size="fontSize"
+        opacity="0.75"
+      >
+        {{ time }}
+      </text>
+      
+      <!-- Opening rectangles -->
+      <rect
+        v-for="chunk in chunks"
+        :key="`${chunk.court}-${chunk.startTime}-${chunk.endTime}`"
+        v-bind="getRectAttrsForChunk(chunk)"
+        @mouseover="hoveredChunk = chunk"
+        @mouseout="hoveredChunk = null"
+      >
+        <title>{{ condensed ? getChunkCourts(chunk) : chunk.court }}</title>
+      </rect>
+      
+      <!-- Hovered opening highlight -->
+      <rect
+        v-if="hoveredChunk"
+        v-bind="getRectAttrsForChunk(hoveredChunk)"
+        fill="#5286fa"
+        pointer-events="none"
+      />
+    </svg>
+  </div>
 </template>
 
 <script setup lang="ts">
@@ -85,6 +97,10 @@ const props = defineProps<{
   date: Date
 }>()
 
+// State
+const hoveredChunk = ref<OpeningChunk | null>(null)
+const condensed = ref(false)
+
 // Constants
 const margin = 10
 const width = 1500
@@ -94,13 +110,17 @@ const fontSize = 18
 const minX = -margin / 2
 const minY = -margin / 2
 const maxX = width + (margin / 2)
-const maxY = headerHeight + (rowHeight * props.facility.courts.length) + margin
+const maxY = computed(() => 
+  condensed.value 
+    ? headerHeight + rowHeight + margin 
+    : headerHeight + (rowHeight * props.facility.courts.length) + margin
+)
 
 // Courts setup
-const xLineCount = props.facility.courts.length + 1
+const xLineCount = computed(() => condensed.value ? 2 : props.facility.courts.length + 1)
 const xLineStart = headerHeight
 const xLinePositions = Array.from(
-  { length: xLineCount }, 
+  { length: xLineCount.value }, 
   (_, idx) => idx * rowHeight + xLineStart
 )
 const xTextPositions = xLinePositions
@@ -119,9 +139,6 @@ const yLineCount = allCourtTimes.length
 const yLineSpacing = (width - yLineStart) / yLineCount
 const yLinePositions = Array.from({ length: yLineCount }, (_, idx) => idx * yLineSpacing + yLineStart)
 
-// State
-const hoveredChunk = ref<OpeningChunk | null>(null)
-
 // Computed
 const formattedDate = computed(() => {
   return props.date.toDateString()
@@ -130,10 +147,12 @@ const formattedDate = computed(() => {
 const chunks = computed(() => {
   if (!props.openings.length) return []
   
-  // Sort openings by court and time
+  // Sort openings by time only in condensed view, by court and time otherwise
   const sortedOpenings = [...props.openings].sort((a, b) => {
-    const courtCompare = a.court.localeCompare(b.court)
-    if (courtCompare !== 0) return courtCompare
+    if (!condensed.value) {
+      const courtCompare = a.court.localeCompare(b.court)
+      if (courtCompare !== 0) return courtCompare
+    }
     return new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
   })
   
@@ -153,16 +172,33 @@ const chunks = computed(() => {
     const currentEndTime = new Date(currentChunk.endTime)
     const openingTime = new Date(opening.datetime)
     
-    if (currentChunk.court === opening.court && currentEndTime.getTime() === openingTime.getTime()) {
-      // Extend current chunk
-      currentChunk.endTime = new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+    if (condensed.value) {
+      // In condensed view, merge chunks if they're adjacent or overlapping
+      if (currentEndTime.getTime() >= openingTime.getTime()) {
+        // Extend current chunk if this opening ends later
+        const openingEndTime = new Date(openingTime.getTime() + 30 * 60 * 1000)
+        if (openingEndTime > currentEndTime) {
+          currentChunk.endTime = openingEndTime.toISOString()
+        }
+      } else {
+        chunks.push(currentChunk)
+        currentChunk = {
+          court: opening.court,
+          startTime: opening.datetime,
+          endTime: new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+        }
+      }
     } else {
-      // Start new chunk
-      chunks.push(currentChunk)
-      currentChunk = {
-        court: opening.court,
-        startTime: opening.datetime,
-        endTime: new Date(new Date(opening.datetime).getTime() + 30 * 60 * 1000).toISOString()
+      // In normal view, only merge consecutive slots for the same court
+      if (currentChunk.court === opening.court && currentEndTime.getTime() === openingTime.getTime()) {
+        currentChunk.endTime = new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+      } else {
+        chunks.push(currentChunk)
+        currentChunk = {
+          court: opening.court,
+          startTime: opening.datetime,
+          endTime: new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+        }
       }
     }
   }
@@ -179,7 +215,7 @@ function getRectAttrsForChunk(chunk: OpeningChunk) {
   const endDate = new Date(chunk.endTime)
   const startHour = startDate.getHours()
   const startMinutes = startDate.getMinutes()
-  const courtIndex = props.facility.courts.indexOf(chunk.court)
+  const courtIndex = condensed.value ? 0 : props.facility.courts.indexOf(chunk.court)
   
   // Calculate position based on both hours and minutes
   const hourOffset = startHour - dayStartHour // Hours since 6AM
@@ -204,7 +240,26 @@ function getRectAttrsForChunk(chunk: OpeningChunk) {
     fill: '#c4d9fd',
     stroke: '#5286fa',
     cursor: 'pointer',
+    'data-court': chunk.court,
   }
+}
+
+function getChunkCourts(chunk: OpeningChunk): string {
+  const chunkStart = new Date(chunk.startTime)
+  const chunkEnd = new Date(chunk.endTime)
+  
+  // Find all openings that overlap with this chunk
+  const overlappingCourts = props.openings
+    .filter(opening => {
+      const openingTime = new Date(opening.datetime)
+      return openingTime >= chunkStart && openingTime < chunkEnd
+    })
+    .map(opening => opening.court)
+  
+  // Get unique courts and sort them
+  const uniqueCourts = [...new Set(overlappingCourts)].sort()
+  
+  return uniqueCourts.join(', ')
 }
 </script>
 

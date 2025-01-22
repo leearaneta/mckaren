@@ -14,16 +14,15 @@
       <!-- Global controls -->
       <div class="bg-white rounded-lg shadow p-4 mb-8">
         <div class="flex gap-8 max-w-3xl">
-          <!-- Left column: Filters -->
-          
-
-          <!-- Right column: Calendar -->
+          <!-- Left column: Calendar -->
           <div class="w-80">
             <Calendar 
               v-model="selectedDate"
               :valid-dates="validDates"
             />
           </div>
+
+          <!-- Right column: Filters -->
           <div class="flex-1">
             <!-- Selected date -->
             <div class="text-xl font-medium mb-4">
@@ -45,6 +44,26 @@
                 >
                 <span>{{ facility.name }}</span>
               </label>
+            </div>
+
+            <!-- Days of week filter -->
+            <div class="mb-6">
+              <h3 class="text-sm font-medium text-gray-700 mb-2">Days of Week:</h3>
+              <div class="flex gap-3">
+                <label 
+                  v-for="(day, index) in ['S', 'M', 'T', 'W', 'T', 'F', 'S']" 
+                  :key="day + index"
+                  class="flex items-center gap-1"
+                >
+                  <input
+                    type="checkbox"
+                    v-model="selectedDays"
+                    :value="index"
+                    class="rounded text-blue-600 w-3 h-3"
+                  >
+                  <span class="text-xs">{{ day }}</span>
+                </label>
+              </div>
             </div>
 
             <!-- Minimum duration filter -->
@@ -118,12 +137,12 @@
           :key="facility.name" 
           class="bg-white rounded-lg shadow p-4"
         >
-          <h2 class="text-xl font-semibold mb-4">{{ facility.name }}</h2>
           
           <Timeline 
             :openings="getOpeningsForFacility(facility.name)"
             :facility="facility"
             :date="selectedDate"
+            :condensed="condensedViews[facility.name]"
           />
         </div>
       </div>
@@ -143,18 +162,14 @@ interface Opening {
   minuteLength: number
 }
 
-interface OpeningChunk {
-  court: string
-  startTime: string
-  endTime: string
-}
-
 // State
 const selectedDate = ref(new Date())
 const selectedFacilities = ref<string[]>([])
+const selectedDays = ref<number[]>([0, 1, 2, 3, 4, 5, 6]) // Initialize with all days selected
 const minimumDuration = ref(30)
 const startHour = ref(6) // Default to 6 AM
 const endHour = ref(24) // Default to 10 PM
+const condensedViews = ref<Record<string, boolean>>({})
 
 // Fetch data
 const { data: openings, pending, error } = await useFetch<HalfHourOpening[]>('/api/half-hour-openings')
@@ -178,10 +193,16 @@ const validHalfHourOpenings = computed(() => {
   if (!openings.value) return []
   
   return openings.value.filter(opening => {
-    // Check if within selected time range
+    // Check if within selected days
+    const openingDate = new Date(opening.datetime)
+    console.log(selectedDays.value, openingDate.getDay())
+    if (!selectedDays.value.includes(openingDate.getDay())) return false
+    
+    // Check if within selected facilities
     if (!filteredFacilities.value.some(facility => facility.name === opening.facility)) return false
-    const openingTime = new Date(opening.datetime)
-    const hour = openingTime.getHours()
+    
+    // Check if within selected time range
+    const hour = openingDate.getHours()
     const isInTimeRange = hour >= startHour.value && (
       endHour.value === 24 
         ? hour < 24
@@ -202,7 +223,7 @@ const validHalfHourOpenings = computed(() => {
       const startTime = new Date(longerOpening.startDatetime)
       const endTime = new Date(longerOpening.endDatetime)
       
-      return openingTime >= startTime && openingTime < endTime
+      return openingDate >= startTime && openingDate < endTime
     })
   })
 })

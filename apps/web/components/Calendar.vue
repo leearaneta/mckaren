@@ -77,35 +77,33 @@ function calendarize(date: Date, offset: number) {
   const lastDay = new Date(year, month + 1, 0)
   
   const calendar: number[][] = []
-  let week: number[] = Array(7).fill(0)
-  
-  // Fill in the first week with previous month's days
-  let dayOfWeek = (firstDay.getDay() - offset + 7) % 7
+  let week: number[] = []
   let day = 1
   
-  for (let i = dayOfWeek; i < 7; i++) {
-    week[i] = day++
+  // Add empty cells for days before the first of the month
+  for (let i = 0; i < firstDay.getDay(); i++) {
+    week.push(0)
   }
   
-  // Fill in the rest of the weeks
+  // Add all days of the month
   while (day <= lastDay.getDate()) {
-    if (dayOfWeek === 7) {
+    week.push(day)
+    
+    if (week.length === 7) {
       calendar.push(week)
-      week = Array(7).fill(0)
-      dayOfWeek = 0
+      week = []
     }
-    week[dayOfWeek++] = day++
+    
+    day++
   }
   
-  // Add the last week
-  calendar.push(week)
+  // Fill out the last week if needed
+  while (week.length < 7 && week.length > 0) {
+    week.push(0)
+  }
   
-  // Fill in any remaining days with next month's days
-  if (dayOfWeek < 7) {
-    let nextDay = 1
-    while (dayOfWeek < 7) {
-      week[dayOfWeek++] = nextDay++
-    }
+  if (week.length === 7) {
+    calendar.push(week)
   }
   
   return calendar
