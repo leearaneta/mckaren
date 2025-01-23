@@ -21,7 +21,7 @@ const COURT_IDS = [
   '34790'
 ];
 
-export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies): Promise<HalfHourOpening[]> {
+export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies) {
   // Format date for the request
   const kendoDate = {
     Year: date.getFullYear(),
@@ -67,7 +67,7 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies):
   }));
 
   // Generate all possible 30-minute slots for the day
-  const openings: HalfHourOpening[] = [];
+  const openings: Omit<HalfHourOpening, 'facility'>[] = [];
   const startOfDay = new Date(date);
   startOfDay.setHours(config.openHour || 6, 0, 0, 0); // Default to 6 AM if not specified
   

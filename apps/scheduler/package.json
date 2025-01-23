@@ -5,12 +5,13 @@
   "scripts": {
     "dev": "tsc --watch",
     "build": "tsc",
-    "start": "node dist/etl/main.js",
+    "start": "node dist/index.js",
     "test": "jest",
     "test:watch": "jest --watch"
   },
   "devDependencies": {
     "@types/node": "^20.0.0",
+    "@types/node-cron": "^3.0.0",
     "@types/pg": "^8.11.10",
     "tsx": "^4.0.0",
     "typescript": "^5.0.0"
@@ -19,7 +20,8 @@
     "@mckaren/db": "workspace:*",
     "@mckaren/types": "workspace:*",
     "dotenv": "^16.3.1",
+    "node-cron": "^3.0.3",
     "pg": "^8.13.1",
-    "puppeteer": "^21.0.0"
+    "puppeteer": "^23.5.1"
   }
 }

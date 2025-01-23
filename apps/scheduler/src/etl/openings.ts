@@ -226,34 +226,40 @@ export function getOpenings(facility: string, courtTimes: Omit<HalfHourOpening, 
   );
 }
 
-function openingsAreEqual(a: Opening, b: {
-  start_datetime: string;
-  end_datetime: string;
-  minute_length: number;
-}): boolean {
-  return (
-    a.startDatetime === b.start_datetime &&
-    a.minuteLength === b.minute_length
-  );
-}
-
 export async function getNewOpenings(facility: string, openings: Opening[]): Promise<Opening[]> {
   const client = await pool.connect();
   try {
     const result = await client.query<{
       facility: string;
-      start_datetime: string;
-      end_datetime: string;
+      start_datetime: Date;
       minute_length: number;
     }>(`
-      SELECT facility, start_datetime, end_datetime, minute_length
+      SELECT facility, start_datetime, minute_length
       FROM openings
       WHERE facility = $1
     `, [facility]);
 
-    return openings.filter(opening => 
-      !result.rows.some(row => openingsAreEqual(opening, row))
+    // Create nested index of existing openings using reduce
+    const existingOpenings = result.rows.reduce<Record<string, Record<number, boolean>>>(
+      (acc, row) => {
+        const startDatetime = row.start_datetime.toISOString();
+        return {
+          ...acc,
+          [startDatetime]: {
+            ...(acc[startDatetime] || {}),
+            [row.minute_length]: true
+          }
+        };
+      },
+      {}
     );
+    // Filter out openings that already exist
+    const newOpenings = openings.filter(opening => {
+      const timeIndex = existingOpenings[opening.startDatetime];
+      return !timeIndex || !timeIndex[opening.minuteLength];
+    });
+    console.log(newOpenings)
+    return newOpenings
   } finally {
     client.release();
   }

@@ -61,13 +61,13 @@
         </div>
         <div class="flex gap-3">
           <button
-            class="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+            class="px-4 py-2 text-gray-600 border border-gray-200 rounded hover:bg-gray-50 hover:border-gray-300 transition-colors duration-200"
             @click="handleClose"
           >
             Cancel
           </button>
           <button
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            class="px-4 py-2 bg-blue-50 text-blue-600 border border-blue-200 rounded hover:bg-blue-100 hover:border-blue-300 transition-colors duration-200 font-medium text-sm"
             @click="handleSubscribe"
           >
             Subscribe

@@ -7,7 +7,7 @@ async function debug() {
   try {
     
     // Uncomment to run the full ETL
-    main();
+    cookies();
   } catch (error) {
     console.error('Error:', error);
   }
