@@ -90,8 +90,8 @@ import type { Facility } from '~/utils/types'
 
 interface OpeningChunk {
   court: string
-  startTime: string
-  endTime: string
+  startTime: Date
+  endTime: Date
 }
 
 const props = defineProps<{
@@ -169,7 +169,7 @@ const chunks = computed(() => {
       const courtCompare = a.court.localeCompare(b.court)
       if (courtCompare !== 0) return courtCompare
     }
-    return new Date(a.datetime).getTime() - new Date(b.datetime).getTime()
+    return a.datetime.getTime() - b.datetime.getTime()
   })
   
   const chunks: OpeningChunk[] = []
@@ -180,13 +180,13 @@ const chunks = computed(() => {
       currentChunk = {
         court: opening.court,
         startTime: opening.datetime,
-        endTime: new Date(new Date(opening.datetime).getTime() + 30 * 60 * 1000).toISOString()
+        endTime: new Date(opening.datetime.getTime() + 30 * 60 * 1000)
       }
       continue
     }
     
-    const currentEndTime = new Date(currentChunk.endTime)
-    const openingTime = new Date(opening.datetime)
+    const currentEndTime = currentChunk.endTime;
+    const openingTime = opening.datetime;
     
     if (condensed.value) {
       // In condensed view, merge chunks if they're adjacent or overlapping
@@ -194,26 +194,26 @@ const chunks = computed(() => {
         // Extend current chunk if this opening ends later
         const openingEndTime = new Date(openingTime.getTime() + 30 * 60 * 1000)
         if (openingEndTime > currentEndTime) {
-          currentChunk.endTime = openingEndTime.toISOString()
+          currentChunk.endTime = openingEndTime
         }
       } else {
         chunks.push(currentChunk)
         currentChunk = {
           court: opening.court,
           startTime: opening.datetime,
-          endTime: new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+          endTime: new Date(openingTime.getTime() + 30 * 60 * 1000)
         }
       }
     } else {
       // In normal view, only merge consecutive slots for the same court
       if (currentChunk.court === opening.court && currentEndTime.getTime() === openingTime.getTime()) {
-        currentChunk.endTime = new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+        currentChunk.endTime = new Date(openingTime.getTime() + 30 * 60 * 1000)
       } else {
         chunks.push(currentChunk)
         currentChunk = {
           court: opening.court,
           startTime: opening.datetime,
-          endTime: new Date(openingTime.getTime() + 30 * 60 * 1000).toISOString()
+          endTime: new Date(openingTime.getTime() + 30 * 60 * 1000)
         }
       }
     }
@@ -227,8 +227,8 @@ const chunks = computed(() => {
 })
 
 function getRectAttrsForChunk(chunk: OpeningChunk) {
-  const startDate = new Date(chunk.startTime)
-  const endDate = new Date(chunk.endTime)
+  const startDate = chunk.startTime
+  const endDate = chunk.endTime
   const startHour = startDate.getHours()
   const startMinutes = startDate.getMinutes()
   const courtIndex = condensed.value ? 0 : sortedCourts.value.indexOf(chunk.court)
@@ -261,13 +261,13 @@ function getRectAttrsForChunk(chunk: OpeningChunk) {
 }
 
 function getChunkCourts(chunk: OpeningChunk): string {
-  const chunkStart = new Date(chunk.startTime)
-  const chunkEnd = new Date(chunk.endTime)
+  const chunkStart = chunk.startTime
+  const chunkEnd = chunk.endTime
   
   // Find all openings that overlap with this chunk
   const overlappingCourts = props.openings
     .filter(opening => {
-      const openingTime = new Date(opening.datetime)
+      const openingTime = opening.datetime
       return openingTime >= chunkStart && openingTime < chunkEnd
     })
     .map(opening => opening.court)

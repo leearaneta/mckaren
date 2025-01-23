@@ -51,7 +51,7 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies: Cookies): 
     if (slot.AvailableCourtIds.length > 0) {
       // Convert /Date(1234567890000)/ to ISO string
       const timestamp = parseInt(slot.Start.replace('/Date(', '').replace(')/', ''));
-      const datetime = new Date(timestamp).toISOString();
+      const datetime = new Date(timestamp);
       
       // Create a slot for each available court
       for (const courtId of slot.AvailableCourtIds) {

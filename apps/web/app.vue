@@ -85,8 +85,8 @@ import SubscriptionModal from '~/components/SubscriptionModal.vue'
 
 interface Opening {
   facility: string
-  startDatetime: string
-  endDatetime: string
+  startDatetime: Date
+  endDatetime: Date
   minuteLength: number
 }
 
@@ -106,8 +106,19 @@ onMounted(async () => {
     fetch('/api/openings')
   ])
   facilities.value = await facilitiesResponse.json()
-  openings.value = await openingsResponse.json()
-  longerOpenings.value = await longerOpeningsResponse.json()
+  const openingsData = await openingsResponse.json()
+  const longerOpeningsData = await longerOpeningsResponse.json()
+  
+  openings.value = openingsData.map((o: { facility: string; court: string; datetime: string }) => ({
+    ...o,
+    datetime: new Date(o.datetime)
+  }))
+  longerOpenings.value = longerOpeningsData.map((o: { facility: string; startDatetime: string; endDatetime: string; minuteLength: number }) => ({
+    ...o,
+    startDatetime: new Date(o.startDatetime),
+    endDatetime: new Date(o.endDatetime)
+  }))
+  
   filters.initializeSelectedFacilities(facilities.value)
   filters.initializeSelectedCourts(facilities.value)
 })
@@ -116,7 +127,7 @@ onMounted(async () => {
 const validHalfHourOpenings = computed(() => {
   return openings.value.filter(opening => {
     // Check if within selected days
-    const openingDate = new Date(opening.datetime)
+    const openingDate = opening.datetime;
     if (!filters.selectedDays.includes(openingDate.getDay())) return false
     
     // Check if within selected facilities and courts
@@ -142,8 +153,8 @@ const validHalfHourOpenings = computed(() => {
         return false
       }
       
-      const startTime = new Date(longerOpening.startDatetime)
-      const endTime = new Date(longerOpening.endDatetime)
+      const startTime = longerOpening.startDatetime;
+      const endTime = longerOpening.endDatetime;
       
       return openingDate >= startTime && openingDate < endTime
     })
@@ -162,7 +173,7 @@ const validHalfHourOpeningsByFacility = computed(() => {
   const byFacility: Record<string, HalfHourOpening[]> = {}
   
   validHalfHourOpenings.value
-    .filter(opening => isSameDay(new Date(opening.datetime), selectedDate.value))
+    .filter(opening => isSameDay(opening.datetime, selectedDate.value))
     .forEach(opening => {
       if (!byFacility[opening.facility]) {
         byFacility[opening.facility] = []
@@ -176,7 +187,7 @@ const validHalfHourOpeningsByFacility = computed(() => {
 // Get valid dates from filtered openings
 const validDates = computed(() => {
   const dates = validHalfHourOpenings.value.map(opening => {
-    const date = new Date(opening.datetime)
+    const date = opening.datetime;
     return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime()
   })
   return [...new Set(dates)].map(timestamp => new Date(timestamp))

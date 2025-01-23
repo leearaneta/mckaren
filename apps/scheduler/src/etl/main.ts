@@ -21,7 +21,9 @@ export async function main() {
     const cookies = await getCookies(facility.config.name);
     const halfHourOpenings = await getAllHalfHourOpenings(facility, cookies);
     const openings = getOpenings(facility.config.name, halfHourOpenings);
+    console.log('openings', openings);
     const newOpenings = await getNewOpenings(facility.config.name, openings);
+    console.log('newOpenings', newOpenings);
     await replaceOpenings(facility.config.name, openings, halfHourOpenings);
   }
 }

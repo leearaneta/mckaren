@@ -23,16 +23,16 @@ export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookie
   
   // Filter out slots beyond maxDaysInAdvance and sort by datetime
   return allSlots
-    .filter(slot => new Date(slot.datetime) <= maxAllowedTime)
-    .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+    .filter(slot => slot.datetime <= maxAllowedTime)
+    .sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
 }
 
 const VALID_LENGTHS = [60, 90, 120, 150, 180] as const;
 
 interface CourtReservation {
   court: string;
-  startDatetime: string;
-  endDatetime: string;
+  startDatetime: Date;
+  endDatetime: Date;
 }
 
 /**
@@ -115,16 +115,16 @@ function getPossibleReservations(
   // Filter and sort slots within our time range
   const relevantSlots = availableSlots
     .filter(slot => {
-      const slotTime = new Date(slot.datetime);
+      const slotTime = slot.datetime;
       return slotTime >= startTime && slotTime < endTime;
     })
-    .sort((a, b) => new Date(a.datetime).getTime() - new Date(b.datetime).getTime());
+    .sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
 
   // Group slots by court
   const slotsByCourt = new Map<string, Date[]>();
   relevantSlots.forEach(slot => {
     const slots = slotsByCourt.get(slot.court) || [];
-    slots.push(new Date(slot.datetime));
+    slots.push(slot.datetime);
     slotsByCourt.set(slot.court, slots);
   });
 
@@ -147,8 +147,8 @@ function getPossibleReservations(
         if (currentStart && lastTime) {
           courtReservations.push({
             court,
-            startDatetime: currentStart.toISOString(),
-            endDatetime: new Date(lastTime.getTime() + 30 * 60 * 1000).toISOString()
+            startDatetime: currentStart,
+            endDatetime: new Date(lastTime.getTime() + 30 * 60 * 1000)
           });
         }
         currentStart = time;
@@ -160,8 +160,8 @@ function getPossibleReservations(
     if (currentStart && lastTime) {
       courtReservations.push({
         court,
-        startDatetime: currentStart.toISOString(),
-        endDatetime: new Date(lastTime.getTime() + 30 * 60 * 1000).toISOString()
+        startDatetime: currentStart,
+        endDatetime: new Date(lastTime.getTime() + 30 * 60 * 1000)
       });
     }
   });
@@ -170,16 +170,17 @@ function getPossibleReservations(
 }
 
 export function getOpenings(facility: string, courtTimes: Omit<HalfHourOpening, 'facility'>[]): Opening[] {
-  // Convert string datetimes to Date objects and sort them
-  const slots = courtTimes
-    .map(slot => new Date(slot.datetime))
-    .sort((a, b) => a.getTime() - b.getTime());
+  // Convert to Date objects and sort them
+  const uniqueStartTimes = new Set(courtTimes.map(slot => slot.datetime.toISOString()));
 
   // Create all 30-minute openings (used as building blocks)
-  const thirtyMinOpenings = slots.map(start => ({
-    startDatetime: start.toISOString(),
-    endDatetime: new Date(start.getTime() + 30 * 60 * 1000).toISOString(),
-  }));
+  const thirtyMinOpenings = [ ...uniqueStartTimes ]
+    .map(start => new Date(start))
+    .sort((a, b) => a.getTime() - b.getTime())
+    .map(start => ({
+      startDatetime: start,
+      endDatetime: new Date(start.getTime() + 30 * 60 * 1000),
+    }));
 
   const openings: Opening[] = [];
 
@@ -193,15 +194,15 @@ export function getOpenings(facility: string, courtTimes: Omit<HalfHourOpening, 
       : openings.filter(o => o.minuteLength === previousLength);
     
     previousOpenings.forEach(prevOpening => {
-      const nextSlotStart = new Date(prevOpening.endDatetime);
+      const nextSlotStart = prevOpening.endDatetime;
       
       // Check if there's a 30-min opening that starts right after
       const hasNextSlot = thirtyMinOpenings.some(opening => 
-        new Date(opening.startDatetime).getTime() === nextSlotStart.getTime()
+        opening.startDatetime.getTime() === nextSlotStart.getTime()
       );
       
       if (hasNextSlot) {
-        const start = new Date(prevOpening.startDatetime);
+        const start = prevOpening.startDatetime;
         const end = new Date(nextSlotStart.getTime() + 30 * 60 * 1000);
         
         const minimumReservations = findMinimumCourtReservations(
@@ -212,8 +213,8 @@ export function getOpenings(facility: string, courtTimes: Omit<HalfHourOpening, 
 
         openings.push({
           facility,
-          startDatetime: prevOpening.startDatetime,
-          endDatetime: end.toISOString(),
+          startDatetime: start,
+          endDatetime: end,
           minuteLength,
           mostConvenient: [minimumReservations.map(r => r.court)]
         });
@@ -222,7 +223,7 @@ export function getOpenings(facility: string, courtTimes: Omit<HalfHourOpening, 
   });
 
   return openings.sort((a, b) => 
-    new Date(a.startDatetime).getTime() - new Date(b.startDatetime).getTime()
+    a.startDatetime.getTime() - b.startDatetime.getTime()
   );
 }
 
@@ -242,7 +243,7 @@ export async function getNewOpenings(facility: string, openings: Opening[]): Pro
     // Create nested index of existing openings using reduce
     const existingOpenings = result.rows.reduce<Record<string, Record<number, boolean>>>(
       (acc, row) => {
-        const startDatetime = row.start_datetime.toISOString();
+        const startDatetime = row.start_datetime.getTime();
         return {
           ...acc,
           [startDatetime]: {
@@ -255,10 +256,9 @@ export async function getNewOpenings(facility: string, openings: Opening[]): Pro
     );
     // Filter out openings that already exist
     const newOpenings = openings.filter(opening => {
-      const timeIndex = existingOpenings[opening.startDatetime];
+      const timeIndex = existingOpenings[opening.startDatetime.getTime()];
       return !timeIndex || !timeIndex[opening.minuteLength];
     });
-    console.log(newOpenings)
     return newOpenings
   } finally {
     client.release();

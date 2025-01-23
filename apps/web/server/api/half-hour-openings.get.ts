@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
       FROM half_hour_openings
       ORDER BY facility, court, datetime
     `)
-    
     return convertKeysToCamelCase(result.rows)
   } finally {
     client.release()

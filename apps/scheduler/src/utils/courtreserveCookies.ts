@@ -6,7 +6,7 @@ import { FacilityConfig } from "../types";
 export async function courtreserveCookies(config: FacilityConfig) {
   console.log('Launching browser...');
   const browser = await puppeteer.launch({
-    headless: "new",
+    headless: false,
     defaultViewport: null,
     args: [
       '--no-sandbox',

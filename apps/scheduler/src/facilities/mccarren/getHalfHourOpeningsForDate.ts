@@ -100,7 +100,7 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies) 
       if (!isReserved) {
         openings.push({
           court,
-          datetime: currentTime.toISOString()
+          datetime: currentTime
         });
       }
 

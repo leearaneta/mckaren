@@ -1,4 +1,4 @@
-import type { Protocol } from 'puppeteer';
+import type { Cookie } from 'puppeteer';
 import type { HalfHourOpening, Opening } from '@mckaren/types';
 
 export { HalfHourOpening, Opening };
@@ -15,7 +15,7 @@ export interface FacilityConfig {
   closeHour?: number;
 }
 
-export type Cookies = Protocol.Network.Cookie[];
+export type Cookies = Cookie[];
 
 export interface Facility {
   config: FacilityConfig;
