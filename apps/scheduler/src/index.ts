@@ -30,13 +30,13 @@ cron.schedule('*/5 * * * *', async () => {
 (async () => {
   console.log('Running initial ETL jobs...');
   
-  // try {
-  //   console.log('Running initial cookies ETL...');
-  //   await cookies();
-  //   console.log('Initial cookies ETL completed successfully');
-  // } catch (error) {
-  //   console.error('Error in initial cookies ETL:', error);
-  // }
+  try {
+    console.log('Running initial cookies ETL...');
+    await cookies();
+    console.log('Initial cookies ETL completed successfully');
+  } catch (error) {
+    console.error('Error in initial cookies ETL:', error);
+  }
   
   try {
     console.log('Running initial facilities ETL...');

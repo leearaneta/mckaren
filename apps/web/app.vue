@@ -2,39 +2,39 @@
   <div class="container mx-auto p-6">
     <!-- Controls section -->
     <section class="bg-white rounded-lg shadow py-6 px-4 mb-8">
-      <div class="flex gap-8 max-w-3xl">
-        <!-- Left column: Calendar -->
-        <div class="w-80">
-          <Calendar 
-            v-model="selectedDate"
-            :valid-dates="validDates"
-          />
-        </div>
-
-        <!-- Right column: Filters -->
-        <div class="flex-1">
-          <!-- Selected date -->
-          <div class="text-xl font-medium mb-4">
-            {{ selectedDate.toDateString() }}
+      <div class="flex justify-between">
+        <div class="flex gap-8 max-w-3xl">
+          <!-- Left column: Calendar -->
+          <div class="w-80">
+            <Calendar 
+              v-model="selectedDate"
+              :valid-dates="validDates"
+            />
           </div>
 
-          <Controls 
-            :facilities="facilities" 
-            @showCourtFilter="showCourtFilter = true" 
-          />
+          <!-- Right column: Filters -->
+          <div class="flex-1">
+            <!-- Selected date -->
+            <div class="text-xl font-medium mb-4">
+              {{ selectedDate.toDateString() }}
+            </div>
+
+            <Controls 
+              :facilities="facilities" 
+              @showCourtFilter="showCourtFilter = true" 
+            />
+          </div>
+        </div>        <!-- Subscribe button -->
+        <div class="flex flex-col justify-end">
+          <button 
+            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            @click="showSubscriptionModal = true"
+          >
+            Subscribe to new openings
+          </button>
         </div>
       </div>
     </section>
-
-    <!-- Subscribe button -->
-    <div class="flex justify-end mb-8">
-      <button 
-        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-        @click="showSubscriptionModal = true"
-      >
-        Subscribe to new openings
-      </button>
-    </div>
 
     <!-- Timelines -->
     <div class="space-y-8">

@@ -26,7 +26,6 @@ CREATE TABLE IF NOT EXISTS openings (
     minute_length SMALLINT,
     start_datetime TIMESTAMPTZ,
     end_datetime TIMESTAMPTZ,
-    most_convenient TEXT[]
 );
 
 -- Insert known facilities with their courts
