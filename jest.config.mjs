@@ -2,10 +2,7 @@
 const config = {
   preset: 'ts-jest',
   testEnvironment: 'node',
-  roots: ['<rootDir>/test'],
-  moduleNameMapper: {
-    '^@/(.*)$': '<rootDir>/src/$1'
-  }
+  roots: ['<rootDir>/test']
 };
 
 export default config; 

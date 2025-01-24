@@ -1,7 +1,6 @@
 import { config } from './config';
 import { HalfHourOpening, Cookies } from '../../types';
-import * as fs from 'fs/promises';
-import * as path from 'path';
+
 
 interface CourtReserveResponse {
   Data: Array<{
@@ -21,7 +20,7 @@ const COURT_IDS = [
   '34790'
 ];
 
-export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies) {
+export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies): Promise<Omit<HalfHourOpening, 'facility'>[]> {
   // Format date for the request
   const kendoDate = {
     Year: date.getFullYear(),

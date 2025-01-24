@@ -19,15 +19,6 @@ CREATE TABLE IF NOT EXISTS half_hour_openings (
     PRIMARY KEY (facility, court, datetime)
 );
 
--- Create openings table with facility reference
-CREATE TABLE IF NOT EXISTS openings (
-    id SERIAL PRIMARY KEY,
-    facility TEXT REFERENCES facilities(name),
-    minute_length SMALLINT,
-    start_datetime TIMESTAMPTZ,
-    end_datetime TIMESTAMPTZ,
-);
-
 -- Insert known facilities with their courts
 INSERT INTO facilities (name, courts)
 VALUES 

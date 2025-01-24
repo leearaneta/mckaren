@@ -1,8 +1,10 @@
-import type { HalfHourOpening, Opening, Facility, Cookies } from '../types';
+import type { HalfHourOpening, SubscriptionOpening, Facility, Cookies } from '../types';
+import type { DurationMinutes } from '@mckaren/types';
 import { pool } from '../utils/db';
+import { filterHalfHourOpeningsByPreferences, getOpenings } from '@mckaren/openings';
 
-export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookies): Promise<Omit<HalfHourOpening, 'facility'>[]> {
-  const allSlots: Omit<HalfHourOpening, 'facility'>[] = [];
+export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookies): Promise<HalfHourOpening[]> {
+  const allSlots: HalfHourOpening[] = [];
   const today = new Date();
   
   // Get data for each day up to maxDaysInAdvance
@@ -12,7 +14,7 @@ export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookie
     
     try {
       const slots = await facility.getHalfHourOpeningsForDate(date, cookies);
-      allSlots.push(...slots);
+      allSlots.push(...slots.map(slot => ({ ...slot, facility: facility.config.name })));
     } catch (error) {
       console.error(`Failed to get data for ${date.toDateString()}:`, error);
     }
@@ -27,127 +29,102 @@ export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookie
     .sort((a, b) => a.datetime.getTime() - b.datetime.getTime());
 }
 
-const VALID_LENGTHS = [60, 90, 120, 150, 180] as const;
-
-
-export function getOpenings(facility: string, courtTimes: Omit<HalfHourOpening, 'facility'>[]): Opening[] {
-  // Create unique 30-minute openings directly from courtTimes
-  const thirtyMinOpenings = Object.values(
-    courtTimes.reduce((acc, slot) => ({
-      ...acc,
-      [slot.datetime.getTime()]: {
-        startDatetime: slot.datetime,
-        endDatetime: new Date(slot.datetime.getTime() + 30 * 60 * 1000),
-      }
-    }), {} as Record<number, { startDatetime: Date; endDatetime: Date }>)
-  );
-
-  const openings: Opening[] = [];
-
-  // For each valid length
-  VALID_LENGTHS.forEach(minuteLength => {
-    const previousLength = minuteLength - 30;
-    
-    // Look through openings of the previous length
-    const previousOpenings = previousLength === 30 
-      ? thirtyMinOpenings  // Start with 30-min slots
-      : openings.filter(o => o.minuteLength === previousLength);
-    
-    previousOpenings.forEach(prevOpening => {
-      const nextSlotStart = prevOpening.endDatetime;
-      
-      // Check if there's a 30-min opening that starts right after
-      const hasNextSlot = thirtyMinOpenings.some(opening => 
-        opening.startDatetime.getTime() === nextSlotStart.getTime()
-      );
-      
-      if (hasNextSlot) {
-        const start = prevOpening.startDatetime;
-        const end = new Date(nextSlotStart.getTime() + 30 * 60 * 1000);
-        
-
-        openings.push({
-          facility,
-          startDatetime: start,
-          endDatetime: end,
-          minuteLength
-        });
-      }
-    });
-  });
-
-  return openings.sort((a, b) => 
-    a.startDatetime.getTime() - b.startDatetime.getTime()
-  );
-}
-
-export async function getNewOpenings(facility: string, openings: Opening[]): Promise<Opening[]> {
+export async function getNewSubscriptionOpenings(
+  facility: Facility,
+  currentHalfHourOpenings: HalfHourOpening[]
+): Promise<SubscriptionOpening[]> {
   const client = await pool.connect();
   try {
-    const result = await client.query<{
-      facility: string;
-      start_datetime: Date;
-      minute_length: number;
-    }>(`
-      SELECT facility, start_datetime, minute_length
-      FROM openings
+    // Get previous openings
+    const prevHalfHourOpenings = (await client.query<{ court: string; datetime: Date; facility: string }>(`
+      SELECT court, datetime, facility
+      FROM half_hour_openings
       WHERE facility = $1
-    `, [facility]);
+    `, [facility.config.name])).rows;
 
-    // Create nested index of existing openings using reduce
-    const existingOpenings = result.rows.reduce<Record<string, Record<number, boolean>>>(
-      (acc, row) => {
-        const startDatetime = row.start_datetime.getTime();
-        return {
-          ...acc,
-          [startDatetime]: {
-            ...(acc[startDatetime] || {}),
-            [row.minute_length]: true
-          }
-        };
-      },
-      {}
+    // Create a set of previous opening keys for fast lookup
+    const prevOpeningKeys = new Set(
+      prevHalfHourOpenings.map(o => `${o.court}-${o.datetime.toISOString()}`)
     );
-    // Filter out openings that already exist
-    const newOpenings = openings.filter(opening => {
-      const timeIndex = existingOpenings[opening.startDatetime.getTime()];
-      return !timeIndex || !timeIndex[opening.minuteLength];
+
+    // Find new openings
+    const newHalfHourOpenings = currentHalfHourOpenings.filter(opening => {
+      const key = `${opening.court}-${opening.datetime.toISOString()}`;
+      return !prevOpeningKeys.has(key);
     });
-    return newOpenings
+    
+    if (newHalfHourOpenings.length === 0) {
+      return [];
+    }
+
+    // Get all subscription preferences
+    type SubscriptionRow = {
+      email: string;
+      days_of_week: number[];
+      minimum_duration: number;
+      start_hour: number;
+      start_minute: number;
+      end_hour: number;
+      end_minute: number;
+      omitted_courts: string[];
+    };
+
+    const subscriptions = await client.query<SubscriptionRow>(`
+      SELECT 
+        email,
+        days_of_week,
+        minimum_duration,
+        start_hour,
+        start_minute,
+        end_hour,
+        end_minute,
+        omitted_courts
+      FROM facility_subscriptions
+      WHERE facility = $1
+    `, [facility.config.name]);
+
+    return subscriptions.rows
+      .map((row: SubscriptionRow) => ({
+        email: row.email,
+        minStartTime: { hour: row.start_hour, minute: row.start_minute as 0 | 30 },
+        maxEndTime: { hour: row.end_hour, minute: row.end_minute as 0 | 30 },
+        minDuration: row.minimum_duration as DurationMinutes,
+        daysOfWeek: row.days_of_week as (0 | 1 | 2 | 3 | 4 | 5 | 6)[],
+        omittedCourts: row.omitted_courts
+      }))
+      .map(preferences => ({
+        preferences,
+        newRelevantHalfHourOpenings: filterHalfHourOpeningsByPreferences(newHalfHourOpenings, preferences)
+      }))
+      .filter(({ newRelevantHalfHourOpenings }) => newRelevantHalfHourOpenings.length > 0)
+      .flatMap(({ preferences, newRelevantHalfHourOpenings }) => {
+        const uniqueDates = new Set(newRelevantHalfHourOpenings.map(opening => opening.datetime.toLocaleDateString()));
+        return [ ...uniqueDates ].flatMap(date => {
+          const prevHalfHourOpeningsForDate = prevHalfHourOpenings.filter(o => o.datetime.toLocaleDateString() === date);
+          const filteredPrevHalfHourOpeningsForDate = filterHalfHourOpeningsByPreferences(prevHalfHourOpeningsForDate, preferences);
+
+          const currentHalfHourOpeningsForDate = currentHalfHourOpenings.filter(o => o.datetime.toLocaleDateString() === date);
+          const filteredCurrentHalfHourOpeningsForDate = filterHalfHourOpeningsByPreferences(currentHalfHourOpeningsForDate, preferences);
+
+          const prevOpeningsForDate = getOpenings(filteredPrevHalfHourOpeningsForDate, preferences.minDuration);
+          const currentOpeningsForDate = getOpenings(filteredCurrentHalfHourOpeningsForDate, preferences.minDuration);
+
+          const currentOpeningKeys = new Set(currentOpeningsForDate.map(o => `${o.startDatetime.toISOString()}-${o.endDatetime.toISOString()}`));
+          const newOpeningsForDate = prevOpeningsForDate.filter(o => !currentOpeningKeys.has(`${o.startDatetime.toISOString()}-${o.endDatetime.toISOString()}`));
+
+          return newOpeningsForDate.map(o => ({ ...o, email: preferences.email, facility: facility.config.name }));
+        })
+      })
   } finally {
     client.release();
   }
 }
 
-export async function replaceOpenings(
-  facility: string,
-  openings: Opening[],
-  halfHourOpenings: Omit<HalfHourOpening, 'facility'>[]
-): Promise<void> {
+export async function replaceOpenings(facility: string, halfHourOpenings: HalfHourOpening[]): Promise<void> {
   const client = await pool.connect();
   try {
     await client.query('BEGIN');
-
-    // Delete existing openings for this facility
-    await client.query('DELETE FROM openings WHERE facility = $1', [facility]);
     await client.query('DELETE FROM half_hour_openings WHERE facility = $1', [facility]);
-
-    // Insert new openings
-    for (const opening of openings) {
-      await client.query(`
-        INSERT INTO openings (
-          facility,
-          minute_length,
-          start_datetime,
-          end_datetime,
-        ) VALUES ($1, $2, $3, $4)
-      `, [
-        facility,
-        opening.minuteLength,
-        opening.startDatetime,
-        opening.endDatetime,
-      ]);
-    }
 
     // Insert new half-hour openings
     for (const slot of halfHourOpenings) {

@@ -66,6 +66,7 @@
     <SubscriptionModal
       :show="showSubscriptionModal"
       :facilities="facilities"
+      :preferences="currentPreferences"
       :z-index="30"
       @close="showSubscriptionModal = false"
       @showCourtFilter="showCourtFilter = true"
@@ -76,89 +77,59 @@
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
 import { useFiltersStore } from '~/stores/filters'
-import type { Facility, HalfHourOpening } from '~/utils/types'
+import type { Facility, HalfHourOpening, Opening } from '~/utils/types'
+import type { Preferences, DurationMinutes } from '@mckaren/types'
+import { getOpenings, filterHalfHourOpeningsByPreferences } from '@mckaren/openings'
 import Calendar from '~/components/Calendar.vue'
 import Timeline from '~/components/Timeline.vue'
 import Controls from '~/components/Controls.vue'
 import CourtFilterModal from '~/components/CourtFilterModal.vue'
 import SubscriptionModal from '~/components/SubscriptionModal.vue'
 
-interface Opening {
-  facility: string
-  startDatetime: Date
-  endDatetime: Date
-  minuteLength: number
-}
-
 const filters = useFiltersStore()
 const facilities = ref<Facility[]>([])
-const openings = ref<HalfHourOpening[]>([])
-const longerOpenings = ref<Opening[]>([])
+const halfHourOpenings = ref<HalfHourOpening[]>([])
 const showCourtFilter = ref(false)
 const showSubscriptionModal = ref(false)
 const selectedDate = ref(new Date())
 
 // Fetch facilities and openings on mount
 onMounted(async () => {
-  const [facilitiesResponse, openingsResponse, longerOpeningsResponse] = await Promise.all([
+  const [facilitiesResponse, openingsResponse] = await Promise.all([
     fetch('/api/facilities'),
-    fetch('/api/half-hour-openings'),
-    fetch('/api/openings')
+    fetch('/api/half-hour-openings')
   ])
   facilities.value = await facilitiesResponse.json()
   const openingsData = await openingsResponse.json()
-  const longerOpeningsData = await longerOpeningsResponse.json()
   
-  openings.value = openingsData.map((o: { facility: string; court: string; datetime: string }) => ({
+  halfHourOpenings.value = openingsData.map((o: { facility: string; court: string; datetime: string }) => ({
     ...o,
     datetime: new Date(o.datetime)
-  }))
-  longerOpenings.value = longerOpeningsData.map((o: { facility: string; startDatetime: string; endDatetime: string; minuteLength: number }) => ({
-    ...o,
-    startDatetime: new Date(o.startDatetime),
-    endDatetime: new Date(o.endDatetime)
   }))
   
   filters.initializeSelectedFacilities(facilities.value)
   filters.initializeSelectedCourts(facilities.value)
 })
 
-// Filter openings by facility and current filters
+// Convert filters to Preferences type
+const currentPreferences = computed<Preferences>(() => ({
+  minStartTime: { hour: filters.startHour, minute: 0 },
+  maxEndTime: { hour: filters.endHour, minute: 0 },
+  minDuration: filters.minimumDuration as DurationMinutes,
+  daysOfWeek: filters.selectedDays as (0 | 1 | 2 | 3 | 4 | 5 | 6)[],
+  omittedCourts: []
+}))
+
+// Filter half-hour openings by facility and current filters
 const validHalfHourOpenings = computed(() => {
-  return openings.value.filter(opening => {
-    // Check if within selected days
-    const openingDate = opening.datetime;
-    if (!filters.selectedDays.includes(openingDate.getDay())) return false
-    
-    // Check if within selected facilities and courts
-    if (!filters.selectedFacilities.includes(opening.facility)) return false
-    if (!filters.selectedCourts[opening.facility]?.includes(opening.court)) return false
-    
-    // Check if within selected time range
-    const hour = openingDate.getHours()
-    const isInTimeRange = hour >= filters.startHour && (
-      filters.endHour === 24 
-        ? hour < 24
-        : hour < filters.endHour
-    )
-    if (!isInTimeRange) return false
+  // Filter to only selected facilities and courts
+  const relevantHalfHourOpenings = halfHourOpenings.value.filter(opening => 
+    filters.selectedFacilities.includes(opening.facility) &&
+    filters.selectedCourts[opening.facility]?.includes(opening.court)
+  )
 
-    // If minimum duration is 30 minutes or no longer openings, all openings are valid
-    if (filters.minimumDuration <= 30 || !longerOpenings.value) return true
-
-    // Check if this opening falls within a longer opening
-    return longerOpenings.value.some(longerOpening => {
-      if (longerOpening.facility !== opening.facility || 
-          longerOpening.minuteLength < filters.minimumDuration) {
-        return false
-      }
-      
-      const startTime = longerOpening.startDatetime;
-      const endTime = longerOpening.endDatetime;
-      
-      return openingDate >= startTime && openingDate < endTime
-    })
-  })
+  // Filter by preferences (days, time range)
+  return filterHalfHourOpeningsByPreferences(relevantHalfHourOpenings, currentPreferences.value)
 })
 
 // Helper function to check if two dates are the same day
@@ -172,14 +143,41 @@ function isSameDay(date1: Date, date2: Date): boolean {
 const validHalfHourOpeningsByFacility = computed(() => {
   const byFacility: Record<string, HalfHourOpening[]> = {}
   
+  // First, group half-hour openings by facility
+  const halfHourOpeningsByFacility: Record<string, HalfHourOpening[]> = {}
   validHalfHourOpenings.value
     .filter(opening => isSameDay(opening.datetime, selectedDate.value))
     .forEach(opening => {
-      if (!byFacility[opening.facility]) {
-        byFacility[opening.facility] = []
+      if (!halfHourOpeningsByFacility[opening.facility]) {
+        halfHourOpeningsByFacility[opening.facility] = []
       }
-      byFacility[opening.facility].push(opening)
+      halfHourOpeningsByFacility[opening.facility].push(opening)
     })
+  
+  // For each facility, get valid openings based on minimum duration
+  // and only keep half-hour openings that are part of these openings
+  for (const [facility, facilityOpenings] of Object.entries(halfHourOpeningsByFacility)) {
+    // Get longer openings based on minimum duration
+    const openings = getOpenings(facilityOpenings, currentPreferences.value.minDuration)
+    
+    // Create a set of valid datetime strings for fast lookup
+    const validDatetimes = new Set(
+      openings.flatMap(opening => {
+        const validTimes: string[] = []
+        let current = new Date(opening.startDatetime)
+        while (current < opening.endDatetime) {
+          validTimes.push(current.toISOString())
+          current = new Date(current.getTime() + 30 * 60 * 1000)
+        }
+        return validTimes
+      })
+    )
+    
+    // Only keep half-hour openings that are part of valid longer openings
+    byFacility[facility] = facilityOpenings.filter(opening => 
+      validDatetimes.has(opening.datetime.toISOString())
+    )
+  }
   
   return byFacility
 })

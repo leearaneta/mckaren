@@ -1,20 +1,16 @@
-import { pool } from '../utils/db'
+import type { Preferences } from '@mckaren/types'
 
 interface SubscriptionRequest {
   email: string
   facilities: string[]
-  daysOfWeek: number[]
-  minimumDuration: number
-  startHour: number
-  endHour: number
-  omittedCourts: Record<string, string[]>
+  preferences: Preferences
 }
 
 export default defineEventHandler(async (event) => {
   const body = await readBody<SubscriptionRequest>(event)
   
   // Validate request
-  if (!body.email || !body.facilities?.length || !body.daysOfWeek?.length) {
+  if (!body.email || !body.facilities?.length) {
     throw createError({
       statusCode: 400,
       message: 'Missing required fields'
@@ -30,7 +26,8 @@ export default defineEventHandler(async (event) => {
   }
 
   // Validate days of week
-  if (!body.daysOfWeek.every(day => day >= 0 && day <= 6)) {
+  if (!body.preferences.daysOfWeek?.length || 
+      !body.preferences.daysOfWeek.every(day => day >= 0 && day <= 6)) {
     throw createError({
       statusCode: 400,
       message: 'Days of week must be between 0 and 6'
@@ -38,7 +35,9 @@ export default defineEventHandler(async (event) => {
   }
 
   // Validate duration
-  if (body.minimumDuration < 30 || body.minimumDuration > 180 || body.minimumDuration % 30 !== 0) {
+  if (body.preferences.minDuration < 30 || 
+      body.preferences.minDuration > 180 || 
+      body.preferences.minDuration % 30 !== 0) {
     throw createError({
       statusCode: 400,
       message: 'Minimum duration must be between 30 and 180 minutes and be a multiple of 30'
@@ -46,16 +45,18 @@ export default defineEventHandler(async (event) => {
   }
 
   // Validate hours
-  if (body.startHour < 0 || body.startHour >= 24 || 
-      body.endHour <= 0 || body.endHour > 24 ||
-      body.endHour <= body.startHour) {
+  if (body.preferences.minStartTime.hour < 0 || 
+      body.preferences.minStartTime.hour >= 24 || 
+      body.preferences.maxEndTime.hour <= 0 || 
+      body.preferences.maxEndTime.hour > 24 ||
+      body.preferences.maxEndTime.hour <= body.preferences.minStartTime.hour) {
     throw createError({
       statusCode: 400,
       message: 'Invalid hour range'
     })
   }
 
-  const client = await pool.connect()
+  const client = await event.context.pool.connect()
   try {
     await client.query('BEGIN')
 
@@ -74,17 +75,21 @@ export default defineEventHandler(async (event) => {
           days_of_week,
           minimum_duration,
           start_hour,
+          start_minute,
           end_hour,
+          end_minute,
           omitted_courts
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
         [
           body.email,
           facility,
-          body.daysOfWeek,
-          body.minimumDuration,
-          body.startHour,
-          body.endHour,
-          body.omittedCourts[facility] || []
+          body.preferences.daysOfWeek,
+          body.preferences.minDuration,
+          body.preferences.minStartTime.hour,
+          body.preferences.minStartTime.minute,
+          body.preferences.maxEndTime.hour,
+          body.preferences.maxEndTime.minute,
+          body.preferences.omittedCourts[facility as keyof typeof body.preferences.omittedCourts] || []
         ]
       )
     }

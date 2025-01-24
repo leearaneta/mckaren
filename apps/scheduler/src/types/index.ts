@@ -1,9 +1,9 @@
 import type { Cookie } from 'puppeteer';
-import type { HalfHourOpening, Opening } from '@mckaren/types';
+import type { HalfHourOpening, Opening, Preferences } from '@mckaren/types';
 
 export { HalfHourOpening, Opening };
 
-export interface FacilityConfig {
+export type FacilityConfig = {
   name: string;
   loginUrl: string;
   dataUrl: string;
@@ -15,9 +15,12 @@ export interface FacilityConfig {
   closeHour?: number;
 }
 
+export type SubscriptionOpening = Opening & { email: string };
+export type SubscriptionPreferences = Preferences & { email: string };
+
 export type Cookies = Cookie[];
 
-export interface Facility {
+export type Facility = {
   config: FacilityConfig;
   extractCookies: () => Promise<Cookies>;
   getHalfHourOpeningsForDate: (date: Date, cookies: Cookies) => Promise<Omit<HalfHourOpening, 'facility'>[]>;

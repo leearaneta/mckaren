@@ -82,12 +82,14 @@
 import { ref, computed } from 'vue'
 import { useFiltersStore } from '~/stores/filters'
 import type { Facility } from '~/utils/types'
+import type { Preferences } from '@mckaren/types'
 import Modal from './Modal.vue'
 import Controls from './Controls.vue'
 
 const props = defineProps<{
   show: boolean
   facilities: Facility[]
+  preferences: Preferences
   zIndex?: number
 }>()
 
@@ -137,18 +139,7 @@ async function handleSubscribe() {
       body: JSON.stringify({
         email: email.value,
         facilities: filters.selectedFacilities,
-        daysOfWeek: filters.selectedDays,
-        minimumDuration: filters.minimumDuration,
-        startHour: filters.startHour,
-        endHour: filters.endHour,
-        omittedCourts: Object.fromEntries(
-          props.facilities
-            .filter(f => filters.selectedFacilities.includes(f.name))
-            .map(f => [
-              f.name,
-              f.courts.filter(court => !filters.selectedCourts[f.name]?.includes(court))
-            ])
-        )
+        preferences: props.preferences
       })
     })
 

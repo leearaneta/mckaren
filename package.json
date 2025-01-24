@@ -5,8 +5,9 @@
     "web": "pnpm --filter @mckaren/web dev",
     "scheduler": "pnpm --filter @mckaren/scheduler dev",
     "db": "./scripts/start-db.sh",
-    "prepare": "pnpm --filter @mckaren/db build",
-    "dev": "pnpm --parallel --filter \"@mckaren/types\" --filter \"@mckaren/scheduler\" dev"
+    "prepare": "pnpm --filter @mckaren/shared build",
+    "dev": "pnpm --parallel --filter \"@mckaren/types\" --filter \"@mckaren/scheduler\" --filter \"@mckaren/db\" --filter \"@mckaren/openings\" dev",
+    "test": "pnpm --filter @mckaren/openings test"
   },
   "devDependencies": {
     "tsx": "^4.0.0"

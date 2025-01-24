@@ -1,4 +1,4 @@
-import { getAllHalfHourOpenings, getOpenings, getNewOpenings, replaceOpenings } from './openings';
+import { getAllHalfHourOpenings, replaceOpenings, getNewSubscriptionOpenings } from './openings';
 import { pool } from '../utils/db';
 import { usta, mccarren } from '../facilities';
 import { Cookies } from '../types';
@@ -17,13 +17,12 @@ export async function getCookies(facilityName: string): Promise<Cookies> {
 
 export async function main() {
   const facilities = [usta, mccarren];
+  const newSubscriptionOpenings = []
   for (const facility of facilities) {
     const cookies = await getCookies(facility.config.name);
     const halfHourOpenings = await getAllHalfHourOpenings(facility, cookies);
-    const openings = getOpenings(facility.config.name, halfHourOpenings);
-    console.log('openings', openings);
-    const newOpenings = await getNewOpenings(facility.config.name, openings);
-    console.log('newOpenings', newOpenings);
-    await replaceOpenings(facility.config.name, openings, halfHourOpenings);
+    const newSubscriptionOpeningsForFacility = await getNewSubscriptionOpenings(facility, halfHourOpenings);
+    newSubscriptionOpenings.push(...newSubscriptionOpeningsForFacility);
+    await replaceOpenings(facility.config.name, halfHourOpenings);
   }
 }

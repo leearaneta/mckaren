@@ -57,7 +57,7 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies: Cookies): 
       for (const courtId of slot.AvailableCourtIds) {
         slots.push({
           court: `${courtId}`,
-          datetime
+          datetime,
         });
       }
     }
