@@ -13,7 +13,6 @@ CREATE TABLE facility_subscriptions (
   id SERIAL PRIMARY KEY,
   email TEXT NOT NULL,
   facility TEXT NOT NULL,
-  name TEXT NOT NULL,  -- e.g. "Weekday mornings", "Weekend afternoons"
   days_of_week INTEGER[] NOT NULL,
   minimum_duration INTEGER NOT NULL CHECK (minimum_duration >= 30 AND minimum_duration <= 180 AND minimum_duration % 30 = 0),
   start_hour INTEGER NOT NULL CHECK (start_hour >= 0 AND start_hour < 24),

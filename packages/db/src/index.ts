@@ -11,6 +11,8 @@ export interface PoolConfig {
   password: string;
 }
 
+export type PoolClient = pg.PoolClient;
+
 export function createPool(config?: PoolConfig) {
   if (!process.env.DB_HOST || !process.env.DB_PORT || !process.env.DB_NAME || 
       !process.env.DB_USER || !process.env.DB_PASSWORD) {

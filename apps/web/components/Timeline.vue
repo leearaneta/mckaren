@@ -2,8 +2,7 @@
   <div>
     <div class="flex justify-between items-center mb-2">
       <div>
-        <h3 class="text-lg font-medium">{{ facility.name }}</h3>
-        <div class="text-sm text-gray-600">{{ formattedDate }}</div>
+
       </div>
       <button 
         class="px-3 py-1 rounded border border-gray-300 hover:bg-gray-100"
@@ -107,7 +106,7 @@ const condensed = ref(true)
 // Constants
 const margin = 10
 const width = 1500
-const rowHeight = 50 // Fixed height per court row
+const rowHeight = 36 // Fixed height per court row
 const headerHeight = 40 // Height for the date and time labels
 const fontSize = 18
 const minX = -margin / 2

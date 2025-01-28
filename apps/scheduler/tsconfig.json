@@ -1,13 +1,14 @@
 {
   "compilerOptions": {
     "target": "ES2020",
-    "module": "CommonJS",
-    "moduleResolution": "node",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
     "esModuleInterop": true,
     "strict": true,
-    "outDir": "dist",
+    "skipLibCheck": true,
     "declaration": true,
-    "sourceMap": true
+    "outDir": "./dist",
+    "types": ["node", "jest"]
   },
-  "include": ["src/**/*.ts"]
+  "include": ["src/**/*", "test/**/*"]
 } 

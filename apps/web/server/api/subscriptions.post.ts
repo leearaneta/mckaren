@@ -1,15 +1,29 @@
-import type { Preferences, FacilitySubscription } from '@mckaren/types'
+import type { Preferences } from '@mckaren/types'
+import { pool } from '~/server/utils/db'
 
 interface SubscriptionRequest {
   email: string;
   subscriptions: {
     facility: string;
-    name: string;
     preferences: Omit<Preferences, 'omittedCourts'>;
   }[];
-  courtPreferences: {
+  omittedCourts: {
     [facility: string]: string[];  // omitted courts for each facility
   };
+}
+
+// Helper function to get parameter index for each subscription field
+function getParamIndex(subscriptionIndex: number, field: 'daysOfWeek' | 'minDuration' | 'startHour' | 'startMinute' | 'endHour' | 'endMinute'): number {
+  const FIELDS_PER_SUBSCRIPTION = 6
+  const fieldIndices = {
+    daysOfWeek: 2,
+    minDuration: 3,
+    startHour: 4,
+    startMinute: 5,
+    endHour: 6,
+    endMinute: 7
+  }
+  return subscriptionIndex * FIELDS_PER_SUBSCRIPTION + fieldIndices[field]
 }
 
 export default defineEventHandler(async (event) => {
@@ -43,7 +57,7 @@ export default defineEventHandler(async (event) => {
     }
 
     // Validate duration
-    if (sub.preferences.minDuration < 30 || 
+    if (sub.preferences.minDuration < 60 || 
         sub.preferences.minDuration > 180 || 
         sub.preferences.minDuration % 30 !== 0) {
       throw createError({
@@ -65,48 +79,72 @@ export default defineEventHandler(async (event) => {
     }
   }
 
-  const client = await event.context.pool.connect()
+  const client = await pool.connect()
   try {
     await client.query('BEGIN')
 
-    // First, handle court preferences
-    for (const [facility, omittedCourts] of Object.entries(body.courtPreferences)) {
-      // Upsert court preferences
+    // First, delete all existing subscriptions and preferences for this email
+    await client.query(
+      `DELETE FROM facility_court_preferences WHERE email = $1`,
+      [body.email]
+    )
+    await client.query(
+      `DELETE FROM facility_subscriptions WHERE email = $1`,
+      [body.email]
+    )
+
+    // Insert all court preferences in one query
+    if (Object.keys(body.omittedCourts).length > 0) {
+      const courtPrefsValues = Object.entries(body.omittedCourts).map(
+        ([facility]) => `($1, ${client.escapeLiteral(facility)}, $2::text[])`
+      ).join(', ')
+      
       await client.query(
         `INSERT INTO facility_court_preferences (email, facility, omitted_courts)
-         VALUES ($1, $2, $3)
-         ON CONFLICT (email, facility) DO UPDATE
-         SET omitted_courts = $3`,
-        [body.email, facility, omittedCourts]
+         VALUES ${courtPrefsValues}`,
+        [body.email, Object.values(body.omittedCourts).flat()]
       )
     }
 
-    // Then, handle subscriptions
-    for (const sub of body.subscriptions) {
-      // Create new subscription
-      await client.query(
-        `INSERT INTO facility_subscriptions (
-          email,
-          facility,
-          name,
-          days_of_week,
-          minimum_duration,
-          start_hour,
-          start_minute,
-          end_hour,
-          end_minute
-        ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
-        [
-          body.email,
-          sub.facility,
-          sub.name,
+    // Insert all subscriptions in one query
+    if (body.subscriptions.length > 0) {
+      const subscriptionValues = body.subscriptions.map(
+        (sub, idx) => `(
+          $1,
+          ${client.escapeLiteral(sub.facility)},
+          $${getParamIndex(idx, 'daysOfWeek')}::integer[],
+          $${getParamIndex(idx, 'minDuration')}::integer,
+          $${getParamIndex(idx, 'startHour')}::integer,
+          $${getParamIndex(idx, 'startMinute')}::integer,
+          $${getParamIndex(idx, 'endHour')}::integer,
+          $${getParamIndex(idx, 'endMinute')}::integer
+        )`
+      ).join(', ')
+
+      const subscriptionParams = [
+        body.email,
+        ...body.subscriptions.flatMap(sub => [
           sub.preferences.daysOfWeek,
           sub.preferences.minDuration,
           sub.preferences.minStartTime.hour,
           sub.preferences.minStartTime.minute,
           sub.preferences.maxEndTime.hour,
           sub.preferences.maxEndTime.minute
-        ]
+        ])
+      ]
+
+      await client.query(
+        `INSERT INTO facility_subscriptions (
+          email,
+          facility,
+          days_of_week,
+          minimum_duration,
+          start_hour,
+          start_minute,
+          end_hour,
+          end_minute
+        ) VALUES ${subscriptionValues}`,
+        subscriptionParams
       )
     }
 

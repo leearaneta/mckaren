@@ -1,34 +1,74 @@
 <template>
   <div class="container mx-auto p-6">
-    <!-- Controls section -->
-    <section class="bg-white rounded-lg shadow py-6 px-4 mb-8">
-      <div class="flex justify-between">
-        <div class="flex gap-8">
-          <!-- Left column: Calendar -->
-          <div class="w-80">
-            <Calendar 
-              v-model="selectedDate"
-              :valid-dates="validDates"
-            />
-          </div>
+    <!-- Sticky date navigation -->
+    <div class="sticky top-0 bg-white py-4 px-4 rounded-t-lg shadow z-10">
+      <div class="flex items-center justify-around md:justify-normal gap-4">
+        <button 
+          class="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          @click="selectedDate = new Date(selectedDate.setDate(selectedDate.getDate() - 1))"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        
+        <div class="text-xl font-medium">
+          <span class="hidden md:inline">
+            {{ selectedDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) }}
+          </span>
+          <span class="md:hidden">
+            {{ selectedDate.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) }}
+          </span>
+        </div>
+        
+        <button 
+          class="p-2 hover:bg-gray-100 rounded-full transition-colors"
+          @click="selectedDate = new Date(selectedDate.setDate(selectedDate.getDate() + 1))"
+        >
+          <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+            <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
+          </svg>
+        </button>
+      </div>
+    </div>
 
-          <!-- Right column: Filters -->
-          <div class="flex-1">
-            <!-- Selected date -->
-            <div class="text-xl font-medium mb-4">
-              {{ selectedDate.toDateString() }}
+    <!-- Controls section -->
+    <section class="bg-white shadow mb-8 rounded-b-lg">
+      <div class="py-6 px-4">
+        <div class="flex flex-col md:flex-row md:justify-between">
+          <div class="flex gap-8">
+            <!-- Left column: Calendar -->
+            <div class="w-80 hidden md:block">
+              <Calendar 
+                v-model="selectedDate"
+                :valid-dates="validDates"
+              />
             </div>
 
-            <Controls 
-              :facilities="facilities" 
-              @showCourtFilter="showCourtFilter = true" 
-            />
+            <!-- Right column: Filters -->
+            <div class="flex-1">
+              <Controls 
+                :facilities="facilities" 
+                @showCourtFilter="showCourtFilter = true" 
+              />
+            </div>
+          </div>
+
+          <!-- Subscribe button - hidden on mobile, shown in original position on desktop -->
+          <div class="hidden md:flex md:flex-col md:justify-end">
+            <button 
+              class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              @click="showSubscriptionModal = true"
+            >
+              Subscribe to new openings
+            </button>
           </div>
         </div>
-        <!-- Subscribe button -->
-        <div class="flex flex-col justify-end">
+
+        <!-- Subscribe button - shown below controls on mobile -->
+        <div class="mt-6 md:hidden">
           <button 
-            class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
             @click="showSubscriptionModal = true"
           >
             Subscribe to new openings
@@ -38,10 +78,10 @@
     </section>
 
     <!-- Faclities -->
-    <div class="bg-white rounded-lg shadow p-4">
+    <div class="bg-white rounded-lg shadow">
       <!-- Facility tabs -->
-      <div class="border-b mb-4">
-        <div class="flex gap-2">
+      <div class="sticky top-[72px] bg-white border-b z-10 py-1 rounded-t-lg">
+        <div class="flex gap-2 px-4">
           <button
             v-for="facility in facilities"
             :key="facility.name"
@@ -59,15 +99,17 @@
       </div>
 
       <!-- Facility view -->
-      <template v-if="selectedFacility && currentFacility">
-        <FacilityView
-          :facility="currentFacility"
-          :omitted-courts="filters.omittedCourts[currentFacility.name]"
-          :half-hour-openings="displayHalfHourOpeningsByFacility[currentFacility.name] || []"
-          :openings="currentFacilityOpenings"
-          :date="selectedDate"
-        />
-      </template>
+      <div class="p-4">
+        <template v-if="selectedFacility && currentFacility">
+          <FacilityView
+            :facility="currentFacility"
+            :omitted-courts="filters.omittedCourts[currentFacility.name]"
+            :half-hour-openings="displayHalfHourOpeningsByFacility[currentFacility.name] || []"
+            :openings="currentFacilityOpenings"
+            :date="selectedDate"
+          />
+        </template>
+      </div>
     </div>
 
     <!-- Modals -->
@@ -89,7 +131,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, watch } from 'vue'
+import { ref, computed, onMounted, watch, onUnmounted } from 'vue'
 import { useFiltersStore } from '~/stores/filters'
 import type { Facility, HalfHourOpening, Opening } from '~/utils/types'
 import { getOpenings, filterHalfHourOpeningsByPreferences } from '@mckaren/openings'
@@ -107,6 +149,59 @@ const showSubscriptionModal = ref(false)
 const selectedDate = ref(new Date())
 const selectedFacility = ref('')
 
+const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+let intervalId: NodeJS.Timeout | null = null;
+let isFetchQueued = false;
+
+// Polling function
+async function pollHalfHourOpenings() {
+  try {
+    const response = await fetch('/api/half-hour-openings')
+    const openingsData = await response.json()
+    
+    halfHourOpenings.value = openingsData.map((o: { facility: string; court: string; datetime: string }) => ({
+      ...o,
+      datetime: new Date(o.datetime)
+    }))
+  } catch (error) {
+    console.error('Failed to fetch half-hour openings:', error);
+  }
+}
+
+// Start polling
+function startPolling() {
+  if (intervalId) return; // Don't start if already polling
+  pollHalfHourOpenings(); // Initial fetch
+  intervalId = setInterval(() => {
+    if (document.hidden) {
+      isFetchQueued = true;
+    } else {
+      pollHalfHourOpenings();
+    }
+  }, POLL_INTERVAL_MS);
+}
+
+// Stop polling
+function stopPolling() {
+  if (intervalId) {
+    clearInterval(intervalId);
+    intervalId = null;
+  }
+}
+
+// Handle visibility change
+function handleVisibilityChange() {
+  if (document.hidden) {
+    stopPolling();
+  } else {
+    if (isFetchQueued) {
+      pollHalfHourOpenings();
+      isFetchQueued = false;
+    }
+    startPolling();
+  }
+}
+
 // Fetch facilities and openings on mount
 onMounted(async () => {
   const [facilitiesResponse, openingsResponse] = await Promise.all([
@@ -123,6 +218,20 @@ onMounted(async () => {
   
   filters.initializeSelectedFacilities(facilities.value)
   filters.initializeOmittedCourts(facilities.value)
+
+  // Set up visibility change listener
+  document.addEventListener('visibilitychange', handleVisibilityChange);
+  
+  // Start polling if page is visible
+  if (!document.hidden) {
+    startPolling();
+  }
+})
+
+// Clean up on unmount
+onUnmounted(() => {
+  document.removeEventListener('visibilitychange', handleVisibilityChange);
+  stopPolling();
 })
 
 // Helper function to check if two dates are the same day
@@ -153,7 +262,7 @@ const validOpeningsByFacility = computed(() => {
   
   for (const [facility, facilityOpenings] of Object.entries(validHalfHourOpeningsByFacility.value)) {
     // Get openings for each filter
-    const openingsByFilter = filters.filters.map(filter => {
+    const allOpenings = filters.filters.flatMap(filter => {
       const preferences = {
         minStartTime: filter.minStartTime,
         maxEndTime: filter.maxEndTime,
@@ -168,7 +277,15 @@ const validOpeningsByFacility = computed(() => {
       // Add facility back to each opening
       return openings.map(opening => ({ ...opening, facility }))
     })
-    byFacility[facility] = openingsByFilter.flat()
+
+    // Flatten and deduplicate openings based on start time and duration
+    const seen = new Set<string>()
+    byFacility[facility] = allOpenings.filter(opening => {
+      const key = `${opening.startDatetime.getTime()}-${opening.durationMinutes}`
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
   }
 
   return byFacility

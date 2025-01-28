@@ -1,7 +1,8 @@
 import { getAllHalfHourOpenings, replaceOpenings, getNewSubscriptionOpenings } from './openings';
 import { pool } from '../utils/db';
 import { usta, mccarren } from '../facilities';
-import { Cookies } from '../types';
+import { Cookies, Opening } from '../types';
+import { sendOpeningNotifications } from './mail';
 
 export async function getCookies(facilityName: string): Promise<Cookies> {
   const client = await pool.connect();
@@ -16,13 +17,25 @@ export async function getCookies(facilityName: string): Promise<Cookies> {
 }
 
 export async function main() {
+  const client = await pool.connect();
   const facilities = [usta, mccarren];
-  const newSubscriptionOpenings = []
-  for (const facility of facilities) {
-    const cookies = await getCookies(facility.config.name);
-    const halfHourOpenings = await getAllHalfHourOpenings(facility, cookies);
-    const newSubscriptionOpeningsForFacility = await getNewSubscriptionOpenings(facility, halfHourOpenings);
-    newSubscriptionOpenings.push(...newSubscriptionOpeningsForFacility);
-    await replaceOpenings(facility.config.name, halfHourOpenings);
+  const newSubscriptionOpeningsByEmail: Record<string, Opening[]> = {};
+  try {
+    for (const facility of facilities) {
+      const cookies = await getCookies(facility.config.name);
+      const halfHourOpenings = await getAllHalfHourOpenings(facility, cookies);
+      const newSubscriptionOpeningsForFacility = await getNewSubscriptionOpenings(client, facility, halfHourOpenings);
+      Object.entries(newSubscriptionOpeningsForFacility).forEach(([email, openings]) => {
+        if (!newSubscriptionOpeningsByEmail[email]) {
+          newSubscriptionOpeningsByEmail[email] = [];
+        }
+        newSubscriptionOpeningsByEmail[email].push(...openings);
+      });
+      await replaceOpenings(client, facility.config.name, halfHourOpenings);
+    }
+    console.log(newSubscriptionOpeningsByEmail);
+    await sendOpeningNotifications(newSubscriptionOpeningsByEmail);
+  } finally {
+    client.release();
   }
 }
