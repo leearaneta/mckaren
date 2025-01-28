@@ -13,7 +13,7 @@
     <!-- Main controls area with tabs -->
     <div class="flex gap-4">
       <!-- Controls section -->
-      <div class="flex-1">
+      <div class="flex flex-col">
         <!-- Facility filters -->
         <div class="flex flex-wrap gap-2 mb-6">
           <label 
@@ -59,7 +59,6 @@
               v-model="currentFilter.minDuration" 
               class="rounded-lg border-gray-300 text-sm pl-2"
             >
-              <option :value="30">30 minutes</option>
               <option :value="60">1 hour</option>
               <option :value="90">1.5 hours</option>
               <option :value="120">2 hours</option>
@@ -75,12 +74,12 @@
             <label class="flex items-center space-x-2">
               <span class="text-sm font-medium text-gray-700">Start time:</span>
               <select 
-                v-model="currentFilter.minStartTime.hour" 
+                v-model="currentFilter.minStartTime" 
                 class="rounded-lg border-gray-300 text-sm pl-2"
               >
                 <option 
                   v-for="option in timeOptions" 
-                  :key="option.value"
+                  :key="`${option.value.hour}-${option.value.minute}`"
                   :value="option.value"
                 >
                   {{ option.label }}
@@ -91,15 +90,15 @@
             <label class="flex items-center space-x-2">
               <span class="text-sm font-medium text-gray-700">End time:</span>
               <select 
-                v-model="currentFilter.maxEndTime.hour" 
+                v-model="currentFilter.maxEndTime" 
                 class="rounded-lg border-gray-300 text-sm pl-2"
-                :class="{ 'border-red-500': currentFilter.maxEndTime.hour <= currentFilter.minStartTime.hour }"
+                :class="{ 'border-red-500': isEndTimeBeforeStart }"
               >
                 <option 
                   v-for="option in timeOptions" 
-                  :key="option.value"
+                  :key="`${option.value.hour}-${option.value.minute}`"
                   :value="option.value"
-                  :disabled="option.value <= currentFilter.minStartTime.hour"
+                  :disabled="isTimeBeforeStart(option.value)"
                 >
                   {{ option.label }}
                 </option>
@@ -107,7 +106,7 @@
             </label>
           </div>
           
-          <div v-if="currentFilter.maxEndTime.hour <= currentFilter.minStartTime.hour" class="text-sm text-red-500">
+          <div v-if="isEndTimeBeforeStart" class="text-sm text-red-500">
             End time must be after start time
           </div>
         </div>
@@ -115,7 +114,7 @@
 
       <!-- Tabs section -->
       <div class="flex flex-col min-w-[100px] border-l pl-4">
-        <div class="flex items-center justify-between mb-4">
+        <div class="flex items-center gap-4 mb-4">
           <h3 class="text-sm font-medium text-gray-700">Filters</h3>
           <button 
             class="text-sm text-blue-600 hover:text-blue-700"
@@ -124,27 +123,31 @@
             +
           </button>
         </div>
-        <div class="space-y-2 overflow-y-auto max-h-[300px]">
-          <button
+        <div class="space-y-2 overflow-y-auto flex-1">
+          <div
             v-for="(filter, index) in filters.filters"
             :key="index"
-            class="w-full px-3 py-2 text-left text-sm rounded-lg transition-colors duration-200"
-            :class="{
-              'bg-blue-50 text-blue-600': currentFilterIndex === index,
-              'hover:bg-gray-50': currentFilterIndex !== index
-            }"
-            @click="currentFilterIndex = index"
+            class="flex items-center gap-1"
           >
-            Filter {{ index + 1 }}
-          </button>
+            <button
+              class="flex-1 px-2 py-1 text-left text-sm rounded-lg transition-colors duration-200 whitespace-nowrap"
+              :class="{
+                'bg-blue-50 text-blue-600': currentFilterIndex === index,
+                'hover:bg-gray-50': currentFilterIndex !== index
+              }"
+              @click="currentFilterIndex = index"
+            >
+              Filter {{ index + 1 }}
+            </button>
+            <button 
+              v-if="filters.filters.length > 1"
+              class="px-2 text-gray-400 hover:text-red-600"
+              @click="removeFilter(index)"
+            >
+              ×
+            </button>
+          </div>
         </div>
-        <button 
-          v-if="filters.filters.length > 1"
-          class="mt-4 text-sm text-red-600 hover:text-red-700"
-          @click="removeFilter"
-        >
-          Remove filter
-        </button>
       </div>
     </div>
 
@@ -167,11 +170,38 @@ defineEmits<{
 const filters = useFiltersStore()
 
 const timeOptions = computed(() => {
-  return Array.from({ length: 24 }, (_, i) => ({
-    value: i,
-    label: `${i.toString().padStart(2, '0')}:00`
-  }))
+  const options = []
+  
+  // Generate options from 5 AM to 11:30 PM
+  for (let hour = 5; hour < 24; hour++) {
+    // Full hour
+    options.push({
+      value: { hour, minute: 0 },
+      label: formatTimeOption(hour, 0)
+    })
+    // Half hour
+    options.push({
+      value: { hour, minute: 30 },
+      label: formatTimeOption(hour, 30)
+    })
+  }
+
+  // Add midnight at the end
+  options.push({
+    value: { hour: 0, minute: 0 },
+    label: 'Midnight'
+  })
+
+  return options
 })
+
+// Helper to format time options
+function formatTimeOption(hour: number, minute: number): string {
+  if (hour === 0 && minute === 0) return 'Midnight'
+  const period = hour < 12 ? 'AM' : 'PM'
+  const displayHour = hour > 12 ? hour - 12 : hour
+  return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`
+}
 
 const currentFilterIndex = ref(0)
 
@@ -184,12 +214,30 @@ const addFilter = () => {
   currentFilterIndex.value = filters.filters.length - 1
 }
 
-const removeFilter = () => {
+const removeFilter = (index: number) => {
   if (filters.filters.length > 1) {
-    filters.removeFilter(currentFilterIndex.value)
+    filters.removeFilter(index)
     if (currentFilterIndex.value >= filters.filters.length) {
       currentFilterIndex.value = filters.filters.length - 1
     }
   }
+}
+
+// Helper to compare times
+const isEndTimeBeforeStart = computed(() => {
+  const start = currentFilter.value.minStartTime
+  const end = currentFilter.value.maxEndTime
+  // Convert midnight (0:00) to 24:00 for comparison
+  const endHour = end.hour === 0 ? 24 : end.hour
+  const startHour = start.hour
+  return endHour < startHour || (endHour === startHour && end.minute <= start.minute)
+})
+
+function isTimeBeforeStart(time: { hour: number, minute: number }): boolean {
+  const start = currentFilter.value.minStartTime
+  // Convert midnight (0:00) to 24:00 for comparison
+  const timeHour = time.hour === 0 ? 24 : time.hour
+  const startHour = start.hour
+  return timeHour < startHour || (timeHour === startHour && time.minute <= start.minute)
 }
 </script> 

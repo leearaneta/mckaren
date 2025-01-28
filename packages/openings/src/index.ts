@@ -30,13 +30,18 @@ export function filterHalfHourOpeningsByPreferences(
       const hour = opening.datetime.getHours();
       const minute = opening.datetime.getMinutes();
 
+      // Convert hours to comparable values (midnight = 24)
+      const openingHour = hour === 0 ? 24 : hour;
+      const startHour = preferences.minStartTime.hour;
+      const endHour = preferences.maxEndTime.hour === 0 ? 24 : preferences.maxEndTime.hour;
+
       // Check if time is within range
-      if (hour < preferences.minStartTime.hour) return false;
-      if (hour > preferences.maxEndTime.hour) return false;
+      if (openingHour < startHour) return false;
+      if (openingHour > endHour) return false;
       
       // If on boundary hours, check minutes
-      if (hour === preferences.minStartTime.hour && minute < preferences.minStartTime.minute) return false;
-      if (hour === preferences.maxEndTime.hour && minute > preferences.maxEndTime.minute) return false;
+      if (openingHour === startHour && minute < preferences.minStartTime.minute) return false;
+      if (openingHour === endHour && minute > preferences.maxEndTime.minute) return false;
 
       return true;
     })
@@ -111,7 +116,7 @@ function setDiff(setA: Set<string>, setB: Set<string>): Set<string> {
   return new Set([...setA].filter(court => setB.has(court)));
 }
 
-function findOptimalPath(condensedOpenings: CondensedHalfHourOpening[]): string[] {
+function findOptimalPath(condensedOpenings: CondensedHalfHourOpening[]): { path: string[] } | { courts: string[] } {
   let path: string[] = [];
   let possibleCourts: Set<string> = new Set();
   let currentCount = 0;
@@ -135,6 +140,9 @@ function findOptimalPath(condensedOpenings: CondensedHalfHourOpening[]): string[
       if (currentCount === 1 && i > 0) {
         toRecheck.push({ index: i, courts: possibleCourts })
       }
+      if (path.length === 0) {
+        return { courts: Array.from(possibleCourts) }
+      }
       path = [...path, ...Array(currentCount).fill(Array.from(possibleCourts)[0])];
     }
   }
@@ -149,18 +157,19 @@ function findOptimalPath(condensedOpenings: CondensedHalfHourOpening[]): string[
     }
   }
 
-  return path;
+  return { path };
 }
 
 function createOpeningsFromChunk(chunk: OpeningChunk, minDuration: DurationMinutes): Omit<Opening, 'facility'>[] {
   const openings: Omit<Opening, 'facility'>[] = [];
   const numSlots = chunk.condensedHalfHourOpenings.length;
   const minSlots = minDuration / 30;
+  const maxSlots = 6; // 3 hours = 6 half-hour slots
 
   // For each possible starting position
   for (let start = 0; start < numSlots; start++) {
-    // For each possible length (that's at least minDuration)
-    for (let len = minSlots; len <= numSlots - start; len++) {
+    // For each possible length (that's at least minDuration and at most 3 hours)
+    for (let len = minSlots; len <= Math.min(numSlots - start, maxSlots); len++) {
       const relevantOpenings = chunk.condensedHalfHourOpenings.slice(start, start + len);
       const durationMinutes = len * 30 as DurationMinutes;
       
@@ -168,7 +177,7 @@ function createOpeningsFromChunk(chunk: OpeningChunk, minDuration: DurationMinut
         startDatetime: relevantOpenings[0].startDatetime,
         endDatetime: new Date(relevantOpenings[0].startDatetime.getTime() + durationMinutes * 60 * 1000),
         durationMinutes,
-        path: findOptimalPath(relevantOpenings)
+        ...findOptimalPath(relevantOpenings)
       });
     }
   }

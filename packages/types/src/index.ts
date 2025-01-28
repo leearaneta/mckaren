@@ -3,7 +3,7 @@ export type Time = {
   minute: number;
 };
 
-export type DurationMinutes = 30 | 60 | 90 | 120 | 150 | 180;
+export type DurationMinutes = 60 | 90 | 120 | 150 | 180;
 
 export type Preferences = {
   minStartTime: Time;
@@ -24,7 +24,8 @@ export type Opening = {
   startDatetime: Date;
   endDatetime: Date;
   durationMinutes: DurationMinutes;
-  path: string[];
+  courts?: string[];
+  path?: string[];
 };
 
 export type CourtReservation = {

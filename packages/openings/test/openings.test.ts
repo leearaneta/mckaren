@@ -25,7 +25,7 @@ describe('getOpenings', () => {
       startDatetime: new Date('2024-01-01T12:00:00.000Z'),
       endDatetime: new Date('2024-01-01T13:00:00.000Z'),
       durationMinutes: 60,
-      path: ['1', '1']
+      courts: ['1']
     });
   });
 
@@ -46,7 +46,7 @@ describe('getOpenings', () => {
     // Should have 1.5 hour opening
     const fullOpening = result.find(o => o.durationMinutes === 90);
     expect(fullOpening).toBeDefined();
-    expect(fullOpening?.path).toEqual(['2', '2', '2']); // Should stick with Court 2 throughout
+    expect(fullOpening?.courts).toEqual(['2']); // Should stick with Court 2 throughout
   });
 
 

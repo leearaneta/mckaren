@@ -16,7 +16,7 @@ export const useFiltersStore = defineStore('filters', {
       selectedFacilities: [],
       minStartTime: { hour: 6, minute: 0 },
       maxEndTime: { hour: 23, minute: 0 },
-      minDuration: 30,
+      minDuration: 60,
       daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
     }],
     omittedCourts: {}

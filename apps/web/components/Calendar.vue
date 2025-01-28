@@ -162,7 +162,6 @@ function isSelected(day: number) {
 
 <style scoped>
 .calendar {
-  width: 100%;
   max-width: 300px;
 }
 

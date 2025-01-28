@@ -7,7 +7,6 @@
     @confirm="handleSubscribe"
   >
     <div class="space-y-6">
-      <!-- Email input -->
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-2">
           Email address
@@ -24,24 +23,10 @@
         </div>
       </div>
 
-      <!-- Information text -->
       <div class="text-sm text-gray-600 space-y-2">
-        <p>
-          Your subscription will include the following facilities with your current settings:
-        </p>
-        <ul class="list-disc pl-5">
-          <li v-for="facility in selectedFacilities" :key="facility">
-            {{ facility }}
-          </li>
-        </ul>
         <p class="mt-4 font-medium">
-          Note:
+          Note: all of your current subscriptions will be overwritten.
         </p>
-        <ul class="list-disc pl-5">
-          <li>You can have multiple subscriptions per facility with different time preferences.</li>
-          <li>Court preferences are shared across all subscriptions for each facility.</li>
-          <li>All subscriptions will be reviewed before notifications are sent.</li>
-        </ul>
       </div>
 
       <!-- Current settings preview -->
@@ -51,7 +36,6 @@
       </div>
     </div>
 
-    <!-- Footer with success message -->
     <template #footer>
       <div class="flex items-center justify-between w-full">
         <div v-show="showSuccess" class="text-green-600 flex items-center gap-2">
@@ -83,7 +67,6 @@
 import { ref, computed } from 'vue'
 import { useFiltersStore } from '~/stores/filters'
 import type { Facility } from '~/utils/types'
-import type { Preferences } from '@mckaren/types'
 import Modal from './Modal.vue'
 import Controls from './Controls.vue'
 

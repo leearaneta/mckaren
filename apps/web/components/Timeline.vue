@@ -102,7 +102,7 @@ const props = defineProps<{
 
 // State
 const hoveredChunk = ref<OpeningChunk | null>(null)
-const condensed = ref(false)
+const condensed = ref(true)
 
 // Constants
 const margin = 10

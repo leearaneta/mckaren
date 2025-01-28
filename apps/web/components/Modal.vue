@@ -6,7 +6,7 @@
     @click.self="$emit('close')"
   >
     <div class="fixed inset-0 bg-black bg-opacity-50" @click.self="$emit('close')" />
-    <div class="bg-white rounded-lg p-6 max-w-lg w-full max-h-[80vh] overflow-y-auto relative">
+    <div class="bg-white rounded-lg p-6 max-w-xl w-full max-h-[80vh] overflow-y-auto relative">
       <!-- Header -->
       <div class="flex justify-between items-center mb-4">
         <h2 class="text-xl font-medium">{{ title }}</h2>
