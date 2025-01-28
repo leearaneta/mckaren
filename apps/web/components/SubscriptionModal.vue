@@ -38,7 +38,8 @@
           Note:
         </p>
         <ul class="list-disc pl-5">
-          <li>If you have existing subscriptions for these facilities, they will be overwritten.</li>
+          <li>You can have multiple subscriptions per facility with different time preferences.</li>
+          <li>Court preferences are shared across all subscriptions for each facility.</li>
           <li>All subscriptions will be reviewed before notifications are sent.</li>
         </ul>
       </div>
@@ -89,7 +90,6 @@ import Controls from './Controls.vue'
 const props = defineProps<{
   show: boolean
   facilities: Facility[]
-  preferences: Preferences
   zIndex?: number
 }>()
 
@@ -103,11 +103,7 @@ const email = ref('')
 const emailError = ref('')
 const showSuccess = ref(false)
 
-const selectedFacilities = computed(() => 
-  props.facilities
-    .filter(f => filters.selectedFacilities.includes(f.name))
-    .map(f => f.name)
-)
+const selectedFacilities = computed(() => filters.allSelectedFacilities)
 
 function handleClose() {
   if (!showSuccess.value) {
@@ -138,8 +134,18 @@ async function handleSubscribe() {
       },
       body: JSON.stringify({
         email: email.value,
-        facilities: filters.selectedFacilities,
-        preferences: props.preferences
+        subscriptions: filters.filters.flatMap(filter => 
+          filter.selectedFacilities.map(facility => ({
+            facility,
+            preferences: {
+              minStartTime: filter.minStartTime,
+              maxEndTime: filter.maxEndTime,
+              minDuration: filter.minDuration,
+              daysOfWeek: filter.daysOfWeek,
+            }
+          }))
+        ),
+        courtPreferences: filters.omittedCourts
       })
     })
 

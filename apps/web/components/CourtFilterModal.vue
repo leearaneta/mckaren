@@ -17,7 +17,7 @@
           class="w-full rounded-lg border-gray-300 pl-2 h-10"
         >
           <option 
-            v-for="facility in filteredFacilities" 
+            v-for="facility in facilities" 
             :key="facility.name"
             :value="facility.name"
           >
@@ -36,7 +36,7 @@
           >
             <input
               type="checkbox"
-              v-model="filters.selectedCourts[selectedFacility]"
+              v-model="selectedCourts"
               :value="court"
               class="rounded text-blue-600"
             >
@@ -67,20 +67,30 @@ defineEmits<{
 const filters = useFiltersStore()
 const selectedFacility = ref('')
 
-// Only show facilities that are selected in the main filters
-const filteredFacilities = computed(() => 
-  props.facilities.filter(f => filters.selectedFacilities.includes(f.name))
-)
-
 // Get the current facility object
 const currentFacility = computed(() => 
   props.facilities.find(f => f.name === selectedFacility.value)
 )
 
+// Compute selected courts (inverse of omitted courts)
+const selectedCourts = computed({
+  get: () => {
+    if (!selectedFacility.value) return []
+    const omitted = filters.omittedCourts[selectedFacility.value] || []
+    return currentFacility.value?.courts.filter(court => !omitted.includes(court)) || []
+  },
+  set: (selected: string[]) => {
+    if (!selectedFacility.value || !currentFacility.value) return
+    // Omitted courts are the inverse of selected courts
+    filters.omittedCourts[selectedFacility.value] = currentFacility.value.courts
+      .filter(court => !selected.includes(court))
+  }
+})
+
 // Set initial facility when modal opens
 watch(() => props.show, (isOpen) => {
-  if (isOpen && filteredFacilities.value.length > 0) {
-    selectedFacility.value = filteredFacilities.value[0].name
+  if (isOpen && props.facilities.length > 0) {
+    selectedFacility.value = props.facilities[0].name
   }
 })
 </script> 

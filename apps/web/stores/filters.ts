@@ -1,36 +1,67 @@
 import { defineStore } from 'pinia'
+import type { Preferences } from '@mckaren/types'
+
+interface Filter extends Omit<Preferences, 'omittedCourts'> {
+  selectedFacilities: string[]
+}
 
 interface FiltersState {
-  selectedFacilities: string[]
-  selectedDays: number[]
-  minimumDuration: number
-  startHour: number
-  endHour: number
-  selectedCourts: Record<string, string[]>
+  filters: Filter[]
+  omittedCourts: Record<string, string[]>
 }
 
 export const useFiltersStore = defineStore('filters', {
   state: (): FiltersState => ({
-    selectedFacilities: [],
-    selectedDays: [0, 1, 2, 3, 4, 5, 6],
-    minimumDuration: 30,
-    startHour: 6,
-    endHour: 24,
-    selectedCourts: {}
+    filters: [{
+      selectedFacilities: [],
+      minStartTime: { hour: 6, minute: 0 },
+      maxEndTime: { hour: 23, minute: 0 },
+      minDuration: 30,
+      daysOfWeek: [0, 1, 2, 3, 4, 5, 6],
+    }],
+    omittedCourts: {}
   }),
 
+  getters: {
+    allSelectedFacilities(): string[] {
+      const facilities = new Set<string>()
+      this.filters.forEach(filter => {
+        filter.selectedFacilities.forEach(facility => facilities.add(facility))
+      })
+      return Array.from(facilities)
+    }
+  },
+
   actions: {
-    initializeSelectedCourts(facilities: { name: string, courts: string[] }[]) {
+    initializeSelectedFacilities(facilities: { name: string }[]) {
+      if (this.filters[0].selectedFacilities.length === 0) {
+        this.filters[0].selectedFacilities = facilities.map(f => f.name)
+      }
+    },
+
+    initializeOmittedCourts(facilities: { name: string, courts: string[] }[]) {
       facilities.forEach(facility => {
-        if (!this.selectedCourts[facility.name]) {
-          this.selectedCourts[facility.name] = [...facility.courts]
+        if (!this.omittedCourts[facility.name]) {
+          this.omittedCourts[facility.name] = []
         }
       })
     },
 
-    initializeSelectedFacilities(facilities: { name: string }[]) {
-      if (this.selectedFacilities.length === 0) {
-        this.selectedFacilities = facilities.map(f => f.name)
+    addFilter() {
+      // Clone the last filter's settings for the new filter
+      const lastFilter = this.filters[this.filters.length - 1]
+      this.filters.push({
+        selectedFacilities: [...lastFilter.selectedFacilities],
+        minStartTime: { ...lastFilter.minStartTime },
+        maxEndTime: { ...lastFilter.maxEndTime },
+        minDuration: lastFilter.minDuration,
+        daysOfWeek: [...lastFilter.daysOfWeek],
+      })
+    },
+
+    removeFilter(index: number) {
+      if (this.filters.length > 1) {
+        this.filters.splice(index, 1)
       }
     }
   }
