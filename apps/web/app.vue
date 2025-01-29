@@ -1,8 +1,8 @@
 <template>
   <div class="container max-w-[1280px] mx-auto p-6">
     <!-- Sticky date navigation -->
-    <div class="sticky top-0 bg-white py-4 px-4 rounded-t-lg shadow z-10">
-      <div class="flex items-center justify-around md:justify-normal gap-4">
+    <div class="sticky flex top-0 bg-white py-4 px-4 rounded-t-lg shadow z-10 justify-center md:justify-normal">
+      <div class="flex items-center justify-between w-[240px] md:w-[360px] gap-4">
         <button 
           class="p-2 hover:bg-gray-100 rounded-full transition-colors"
           @click="selectedDate = new Date(selectedDate.setDate(selectedDate.getDate() - 1))"

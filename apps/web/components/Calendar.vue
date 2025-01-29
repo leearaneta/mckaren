@@ -9,7 +9,7 @@
           <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
         </svg>
       </button>
-      <div class="month">{{ months[month] }} {{ year }}</div>
+      <div class="month">{{ months[displayMonth] }} {{ displayYear }}</div>
       <button 
         class="p-2 hover:bg-gray-100 rounded-full transition-colors"
         @click="toNext"
@@ -38,10 +38,10 @@
                 class="date"
                 :class="{
                   today: isToday(current[week - 1][day - 1]),
-                  'has-openings': hasOpenings({ year, month, dayOfMonth: current[week - 1][day - 1] }),
+                  'has-openings': hasOpenings({ year: displayYear, month: displayMonth, dayOfMonth: current[week - 1][day - 1] }),
                   selected: isSelected(current[week - 1][day - 1])
                 }"
-                @click="handleDateClick({ year, month, dayOfMonth: current[week - 1][day - 1] })"
+                @click="handleDateClick({ year: displayYear, month: displayMonth, dayOfMonth: current[week - 1][day - 1] })"
               >
                 <span class="text">{{ current[week - 1][day - 1] }}</span>
               </div>
@@ -74,12 +74,14 @@ const emit = defineEmits<{
 }>()
 
 const today = new Date()
-const year = ref(today.getFullYear())
-const month = ref(today.getMonth())
 const offset = 0 // Sun
 
 const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+// Compute display month and year from the selected date
+const displayYear = computed(() => props.modelValue.getFullYear())
+const displayMonth = computed(() => props.modelValue.getMonth())
 
 function calendarize(date: Date, offset: number) {
   const year = date.getFullYear()
@@ -121,32 +123,25 @@ function calendarize(date: Date, offset: number) {
   return calendar
 }
 
-const prev = computed(() => calendarize(new Date(year.value, month.value - 1), offset))
-const current = computed(() => calendarize(new Date(year.value, month.value), offset))
-const next = computed(() => calendarize(new Date(year.value, month.value + 1), offset))
+const prev = computed(() => calendarize(new Date(displayYear.value, displayMonth.value - 1), offset))
+const current = computed(() => calendarize(new Date(displayYear.value, displayMonth.value), offset))
+const next = computed(() => calendarize(new Date(displayYear.value, displayMonth.value + 1), offset))
 
 function toPrev() {
-  if (month.value === 0) {
-    month.value = 11
-    year.value--
-  } else {
-    month.value--
-  }
+  const newDate = new Date(props.modelValue)
+  newDate.setMonth(newDate.getMonth() - 1)
+  emit('update:modelValue', newDate)
 }
 
 function toNext() {
-  if (month.value === 11) {
-    month.value = 0
-    year.value++
-  } else {
-    console.trace()
-    month.value++
-  }
+  const newDate = new Date(props.modelValue)
+  newDate.setMonth(newDate.getMonth() + 1)
+  emit('update:modelValue', newDate)
 }
 
 function isToday(day: number) {
-  return year.value === today.getFullYear() && 
-         month.value === today.getMonth() && 
+  return displayYear.value === today.getFullYear() && 
+         displayMonth.value === today.getMonth() && 
          day === today.getDate()
 }
 
@@ -166,8 +161,8 @@ function hasOpenings({ year, month, dayOfMonth }: { year: number, month: number,
 }
 
 function isSelected(day: number) {
-  return year.value === props.modelValue.getFullYear() && 
-         month.value === props.modelValue.getMonth() && 
+  return displayYear.value === props.modelValue.getFullYear() && 
+         displayMonth.value === props.modelValue.getMonth() && 
          day === props.modelValue.getDate()
 }
 </script>

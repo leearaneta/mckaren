@@ -1,9 +1,9 @@
 import type { PoolClient } from '@mckaren/db';
 import type { DurationMinutes, Preferences } from '@mckaren/types';
 import { filterHalfHourOpeningsByPreferences, getOpenings } from '@mckaren/openings';
-import type { HalfHourOpening, Opening, Facility, Cookies } from '../types';
+import type { HalfHourOpening, Opening, Facility, Headers } from '../types';
 
-export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookies): Promise<HalfHourOpening[]> {
+export async function getAllHalfHourOpenings(facility: Facility, headers: Headers): Promise<HalfHourOpening[]> {
   const allSlots: HalfHourOpening[] = [];
   const today = new Date();
   
@@ -13,7 +13,7 @@ export async function getAllHalfHourOpenings(facility: Facility, cookies: Cookie
     date.setDate(today.getDate() + i);
     
     try {
-      const slots = await facility.getHalfHourOpeningsForDate(date, cookies);
+      const slots = await facility.getHalfHourOpeningsForDate(date, headers);
       allSlots.push(...slots.map(slot => ({ ...slot, facility: facility.config.name })));
     } catch (error) {
       console.error(`Failed to get data for ${date.toDateString()}:`, error);

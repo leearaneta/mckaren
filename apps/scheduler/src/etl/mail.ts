@@ -5,6 +5,10 @@ if (!process.env.POSTMARK_API_KEY) {
   throw new Error('Missing POSTMARK_API_KEY environment variable');
 }
 
+if (!process.env.ORIGIN) {
+  throw new Error('Missing ORIGIN environment variable');
+}
+
 const client = new postmark.ServerClient(process.env.POSTMARK_API_KEY);
 
 function groupOpeningsByFacility(openings: Opening[]): Record<string, Opening[]> {
@@ -34,7 +38,7 @@ function groupOpeningsByStartTime(openings: Opening[]): Record<string, Opening[]
   return grouped;
 }
 
-function generateEmailContent(openings: Opening[]): { subject: string; htmlBody: string } {
+function generateEmailContent(openings: Opening[], email: string): { subject: string; htmlBody: string } {
   const openingsByFacility = groupOpeningsByFacility(openings);
   const facilities = Object.keys(openingsByFacility);
     
@@ -77,8 +81,15 @@ function generateEmailContent(openings: Opening[]): { subject: string; htmlBody:
     htmlBody += '</ul>';
   });
 
-  console.log(htmlBody);
-    
+  // Add unsubscribe link at the bottom
+  const unsubscribeUrl = `${process.env.ORIGIN}/api/unsubscribe?email=${encodeURIComponent(email)}`;
+  htmlBody += `
+    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #666; font-size: 0.875rem;">
+      <p> xoxo </p>
+      <p><a href="${unsubscribeUrl}" style="color: #5286fa;">unsubscribe</a></p>
+    </div>
+  `;
+
   return { subject: 'new court openings!', htmlBody };
 }
 
@@ -87,7 +98,7 @@ export async function sendOpeningNotifications(openingsByEmail: Record<string, O
   const emailPromises = Object.entries(openingsByEmail).map(async ([email, openings]) => {
     if (openings.length === 0) return;
     
-    const { subject, htmlBody } = generateEmailContent(openings);
+    const { subject, htmlBody } = generateEmailContent(openings, email);
     
     try {
       await client.sendEmail({

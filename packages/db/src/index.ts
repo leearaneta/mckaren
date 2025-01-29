@@ -12,6 +12,7 @@ export interface PoolConfig {
 }
 
 export type PoolClient = pg.PoolClient;
+export type Pool = pg.Pool;
 
 export function createPool(config?: PoolConfig) {
   if (!process.env.DB_HOST || !process.env.DB_PORT || !process.env.DB_NAME || 
