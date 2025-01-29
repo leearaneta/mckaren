@@ -13,7 +13,7 @@
     <!-- Main controls area -->
     <div class="flex flex-col md:flex-row gap-4">
       <!-- Controls section -->
-      <div class="flex flex-col flex-1">
+      <div class="flex flex-col flex-1 max-w-[360px]">
         <!-- Facility filters -->
         <div class="grid grid-cols-2 md:flex md:flex-wrap gap-1 md:gap-2 mb-4 md:mb-6">
           <label 
@@ -23,7 +23,7 @@
           >
             <input
               type="checkbox"
-              v-model="currentFilter.selectedFacilities"
+              v-model="filters.currentFilter.selectedFacilities"
               :value="facility.name"
               class="rounded text-blue-600 w-3.5 h-3.5"
             >
@@ -42,7 +42,7 @@
             >
               <input
                 type="checkbox"
-                v-model="currentFilter.daysOfWeek"
+                v-model="filters.currentFilter.daysOfWeek"
                 :value="index"
                 class="rounded text-blue-600 w-3 h-3"
               >
@@ -57,7 +57,7 @@
           <div class="flex flex-col space-y-1">
             <span class="text-sm font-medium text-gray-700 mb-1">Min duration:</span>
             <select 
-              v-model="currentFilter.minDuration" 
+              v-model="filters.currentFilter.minDuration" 
               class="rounded-lg border-gray-300 text-sm w-full pl-2"
             >
               <option :value="60">1 hour</option>
@@ -74,7 +74,7 @@
             <div class="flex flex-col space-y-1">
               <span class="text-sm font-medium text-gray-700 mb-1">Min start:</span>
               <select 
-                v-model="currentFilter.minStartTime" 
+                v-model="filters.currentFilter.minStartTime" 
                 class="rounded-lg border-gray-300 text-sm w-full pl-2"
               >
                 <option 
@@ -91,7 +91,7 @@
             <div class="flex flex-col space-y-1">
               <span class="text-sm font-medium text-gray-700 mb-1">Max end:</span>
               <select 
-                v-model="currentFilter.maxEndTime" 
+                v-model="filters.currentFilter.maxEndTime" 
                 class="rounded-lg border-gray-300 text-sm w-full pl-2"
                 :class="{ 'border-red-500': isEndTimeBeforeStart }"
               >
@@ -116,24 +116,24 @@
           <div class="flex items-center justify-between gap-2 mb-2">
             <button 
               class="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              :disabled="currentFilterIndex === 0"
-              @click="currentFilterIndex--"
+              :disabled="filters.currentFilterIndex === 0"
+              @click="filters.setCurrentFilterIndex(filters.currentFilterIndex - 1)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-gray-300': currentFilterIndex === 0 }" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-gray-300': filters.currentFilterIndex === 0 }" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clip-rule="evenodd" />
               </svg>
             </button>
 
             <div class="text-sm font-medium text-gray-700">
-              Filter {{ currentFilterIndex + 1 }}
+              Filter {{ filters.currentFilterIndex + 1 }}
             </div>
 
             <button 
               class="p-2 hover:bg-gray-100 rounded-full transition-colors"
-              :disabled="currentFilterIndex === filters.filters.length - 1"
-              @click="currentFilterIndex++"
+              :disabled="filters.currentFilterIndex === filters.filters.length - 1"
+              @click="filters.setCurrentFilterIndex(filters.currentFilterIndex + 1)"
             >
-              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-gray-300': currentFilterIndex === filters.filters.length - 1 }" viewBox="0 0 20 20" fill="currentColor">
+              <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" :class="{ 'text-gray-300': filters.currentFilterIndex === filters.filters.length - 1 }" viewBox="0 0 20 20" fill="currentColor">
                 <path fill-rule="evenodd" d="M7.293 14.707a1 1 0 010-1.414L10.586 10 7.293 6.707a1 1 0 011.414-1.414l4 4a1 1 0 010 1.414l-4 4a1 1 0 01-1.414 0z" clip-rule="evenodd" />
               </svg>
             </button>
@@ -143,14 +143,14 @@
           <div class="flex gap-2">
             <button 
               class="text-sm text-blue-600 hover:text-blue-700 px-3 py-1 rounded-md border border-blue-200 hover:bg-blue-50 flex-1"
-              @click="addFilter"
+              @click="filters.addFilter()"
             >
               Add filter
             </button>
             <button 
               v-if="filters.filters.length > 1"
               class="text-sm text-gray-600 hover:text-red-600 px-3 py-1 rounded-md border border-gray-200 hover:bg-red-50 flex-1"
-              @click="removeFilter(currentFilterIndex)"
+              @click="filters.removeFilter(filters.currentFilterIndex)"
             >
               Remove filter
             </button>
@@ -163,7 +163,7 @@
             <h3 class="text-sm font-medium text-gray-700">Filters</h3>
             <button 
               class="text-sm text-blue-600 hover:text-blue-700"
-              @click="addFilter"
+              @click="filters.addFilter()"
             >
               +
             </button>
@@ -177,17 +177,17 @@
               <button
                 class="flex-1 px-2 py-1 text-left text-sm rounded-lg transition-colors duration-200 whitespace-nowrap"
                 :class="{
-                  'bg-blue-50 text-blue-600': currentFilterIndex === index,
-                  'hover:bg-gray-50': currentFilterIndex !== index
+                  'bg-blue-50 text-blue-600': filters.currentFilterIndex === index,
+                  'hover:bg-gray-50': filters.currentFilterIndex !== index
                 }"
-                @click="currentFilterIndex = index"
+                @click="filters.setCurrentFilterIndex(index)"
               >
                 Filter {{ index + 1 }}
               </button>
               <button 
                 v-if="filters.filters.length > 1"
                 class="px-2 text-gray-400 hover:text-red-600"
-                @click="removeFilter(index)"
+                @click="filters.removeFilter(index)"
               >
                 ×
               </button>
@@ -201,7 +201,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed } from 'vue'
 import { useFiltersStore } from '~/stores/filters'
 import type { Facility } from '~/utils/types'
 
@@ -249,41 +249,14 @@ function formatTimeOption(hour: number, minute: number): string {
   return `${displayHour}:${minute.toString().padStart(2, '0')} ${period}`
 }
 
-const currentFilterIndex = ref(0)
-
-const currentFilter = computed(() => {
-  return filters.filters[currentFilterIndex.value]
-})
-
-const addFilter = () => {
-  filters.addFilter()
-  currentFilterIndex.value = filters.filters.length - 1
-}
-
-const removeFilter = (index: number) => {
-  if (filters.filters.length > 1) {
-    filters.removeFilter(index)
-    if (currentFilterIndex.value >= filters.filters.length) {
-      currentFilterIndex.value = filters.filters.length - 1
-    }
-  }
-}
-
 // Helper to compare times
 const isEndTimeBeforeStart = computed(() => {
-  const start = currentFilter.value.minStartTime
-  const end = currentFilter.value.maxEndTime
+  const start = filters.currentFilter.minStartTime
+  const end = filters.currentFilter.maxEndTime
   // Convert midnight (0:00) to 24:00 for comparison
   const endHour = end.hour === 0 ? 24 : end.hour
   const startHour = start.hour
   return endHour < startHour || (endHour === startHour && end.minute <= start.minute)
 })
 
-function isTimeBeforeStart(time: { hour: number, minute: number }): boolean {
-  const start = currentFilter.value.minStartTime
-  // Convert midnight (0:00) to 24:00 for comparison
-  const timeHour = time.hour === 0 ? 24 : time.hour
-  const startHour = start.hour
-  return timeHour < startHour || (timeHour === startHour && time.minute <= start.minute)
-}
 </script> 

@@ -4,6 +4,7 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ['@nuxtjs/tailwindcss', '@pinia/nuxt'],
   css: ['~/assets/css/main.css'],
+  ssr: false,
   runtimeConfig: {
     DB_HOST: process.env.DB_HOST,
     DB_PORT: process.env.DB_PORT,
