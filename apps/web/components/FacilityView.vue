@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-8">
+  <div class="md:space-y-8">
     <!-- Timeline - hidden on mobile -->
     <Timeline 
       v-show="!isMobile"

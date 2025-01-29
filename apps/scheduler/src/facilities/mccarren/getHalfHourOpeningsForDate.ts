@@ -1,5 +1,6 @@
 import { config } from './config';
-import { HalfHourOpening, Cookies } from '../../types';
+import { HalfHourOpening, Headers } from '../../types';
+import { getHalfHourOpeningsFromReservations } from '../../utils/getHalfHourOpeningsFromReservations';
 
 
 interface CourtReserveResponse {
@@ -20,7 +21,7 @@ const COURT_IDS = [
   '34790'
 ];
 
-export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies): Promise<Omit<HalfHourOpening, 'facility'>[]> {
+export async function getHalfHourOpeningsForDate(date: Date, headers?: Headers): Promise<Omit<HalfHourOpening, 'facility'>[]> {
   // Format date for the request
   const kendoDate = {
     Year: date.getFullYear(),
@@ -51,11 +52,7 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies):
   const newUrl = `${config.dataUrl}&jsonData=${encodeURIComponent(JSON.stringify(jsonData))}`;
 
   // Make the request
-  const response = await fetch(newUrl, {
-    headers: {
-      Cookie: cookies?.map(c => `${c.name}=${c.value}`).join('; ') || ''
-    }
-  });
+  const response = await fetch(newUrl, { headers });
   const data = await response.json() as CourtReserveResponse;
 
   // Get all court reservations
@@ -65,47 +62,23 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies?: Cookies):
     end: new Date(reservation.End)
   }));
 
-  // Generate all possible 30-minute slots for the day
-  const openings: Omit<HalfHourOpening, 'facility'>[] = [];
-  const startOfDay = new Date(date);
-  startOfDay.setHours(config.openHour || 6, 0, 0, 0); // Default to 6 AM if not specified
-  
-  const endOfDay = new Date(date);
-  const closeHour = config.closeHour ?? 23; // Default to 11 PM if not specified
-  // If closeHour is 0 (midnight), set it to midnight of the next day
-  if (closeHour === 0) {
-    endOfDay.setDate(endOfDay.getDate() + 1);
-    endOfDay.setHours(0, 0, 0, 0);
-  } else {
-    endOfDay.setHours(closeHour, 0, 0, 0);
-  }
-
   // Get unique courts from reservations
-  const courts = [...new Set(reservations.map(r => r.court))];
+  const courts = [
+    "Court #1 (Singles Court)",
+    "Court #2",
+    "Court #3",
+    "Court #4",
+    "Court #5",
+    "Court #6",
+    "Court #7"
+  ];
 
-  // For each court, find available 30-minute slots
-  for (const court of courts) {
-    let currentTime = new Date(startOfDay);
-    const courtReservations = reservations.filter(r => r.court === court);
+  return getHalfHourOpeningsFromReservations(
+    reservations,
+    courts,
+    date,
+    config.openHour!,
+    config.closeHour!
+  );
 
-    while (currentTime < endOfDay) {
-      const slotEnd = new Date(currentTime.getTime() + 30 * 60 * 1000);
-      
-      // Check if this time slot overlaps with any reservation
-      const isReserved = courtReservations.some(reservation => 
-        !(slotEnd <= reservation.start || currentTime >= reservation.end)
-      );
-
-      if (!isReserved) {
-        openings.push({
-          court,
-          datetime: currentTime
-        });
-      }
-
-      currentTime = slotEnd;
-    }
-  }
-
-  return openings;
 }

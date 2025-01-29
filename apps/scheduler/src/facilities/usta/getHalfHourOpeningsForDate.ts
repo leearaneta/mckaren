@@ -1,5 +1,5 @@
 import { config } from './config';
-import { HalfHourOpening, Cookies } from '../../types';
+import { HalfHourOpening, Headers } from '../../types';
 
 interface ApiResponse {
   Data: Array<{
@@ -8,7 +8,7 @@ interface ApiResponse {
   }>;
 }
 
-export async function getHalfHourOpeningsForDate(date: Date, cookies: Cookies): Promise<Omit<HalfHourOpening, 'facility'>[]> {
+export async function getHalfHourOpeningsForDate(date: Date, headers: Headers): Promise<Omit<HalfHourOpening, 'facility'>[]> {
   const payload = {
     orgId: "5881",
     TimeZone: "America/New_York",
@@ -34,7 +34,7 @@ export async function getHalfHourOpeningsForDate(date: Date, cookies: Cookies): 
     method: 'POST',
     headers: {
       'Content-Type': 'application/x-www-form-urlencoded',
-      Cookie: cookies.map(c => `${c.name}=${c.value}`).join('; ')
+      ...headers
     },
     body: formData.toString()
   });

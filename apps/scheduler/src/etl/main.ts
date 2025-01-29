@@ -1,16 +1,16 @@
 import { getAllHalfHourOpenings, replaceOpenings, getNewSubscriptionOpenings } from './openings';
 import { pool } from '../utils/db';
-import { usta, mccarren } from '../facilities';
-import { Cookies, Opening } from '../types';
+import { usta, mccarren, pptc } from '../facilities';
+import { Headers, Opening } from '../types';
 import { sendOpeningNotifications } from './mail';
 
-export async function getCookies(facilityName: string): Promise<Cookies> {
+export async function getHeaders(facilityName: string): Promise<Headers> {
   const client = await pool.connect();
   try {
-    const result = await client.query<{ cookies: Cookies }>(`
-      SELECT cookies FROM facilities WHERE name = $1
+    const result = await client.query<{ headers: Headers }>(`
+      SELECT headers FROM facilities WHERE name = $1
     `, [facilityName]);
-    return result.rows[0]?.cookies || [];
+    return result.rows[0]?.headers || [];
   } finally {
     client.release();
   }
@@ -18,12 +18,12 @@ export async function getCookies(facilityName: string): Promise<Cookies> {
 
 export async function main() {
   const client = await pool.connect();
-  const facilities = [usta, mccarren];
+  const facilities = [usta, pptc, mccarren];
   const newSubscriptionOpeningsByEmail: Record<string, Opening[]> = {};
   try {
     for (const facility of facilities) {
-      const cookies = await getCookies(facility.config.name);
-      const halfHourOpenings = await getAllHalfHourOpenings(facility, cookies);
+      const headers = await getHeaders(facility.config.name);
+      const halfHourOpenings = await getAllHalfHourOpenings(facility, headers);
       const newSubscriptionOpeningsForFacility = await getNewSubscriptionOpenings(client, facility, halfHourOpenings);
       Object.entries(newSubscriptionOpeningsForFacility).forEach(([email, openings]) => {
         if (!newSubscriptionOpeningsByEmail[email]) {

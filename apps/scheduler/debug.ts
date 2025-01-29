@@ -1,13 +1,11 @@
-import { main } from './src/etl/main';
-import { mccarren } from './src/facilities';
-import { cookies } from './src/etl/cookies';
+import { pptc } from './src/facilities';
 
 // Add your debug code here
 async function debug() {
   try {
     
     // Uncomment to run the full ETL
-    cookies();
+    pptc.extractHeaders();
   } catch (error) {
     console.error('Error:', error);
   }

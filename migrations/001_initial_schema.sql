@@ -7,7 +7,7 @@ ALTER DATABASE mckaren SET timezone = 'America/New_York';
 -- Create facilities table with name as primary key
 CREATE TABLE IF NOT EXISTS facilities (
     name TEXT PRIMARY KEY,
-    cookies JSONB NULL,
+    headers JSONB NULL,
     courts JSONB NOT NULL
 );
 
@@ -44,5 +44,18 @@ VALUES
         "9941",
         "9942",
         "9943"
+    ]'::jsonb),
+    ('pptc', '[
+        "Court 1a",
+        "Court 1b",
+        "Court 2a",
+        "Court 2b",
+        "Court 3a",
+        "Court 3b",
+        "Court 4a",
+        "Court 4b",
+        "Court 5a",
+        "Court 5b",
+        "Court 6b"
     ]'::jsonb)
 ON CONFLICT (name) DO UPDATE SET courts = EXCLUDED.courts; 

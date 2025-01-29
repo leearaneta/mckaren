@@ -3,7 +3,7 @@ import fs from 'fs/promises';
 import path from 'path';
 import { FacilityConfig } from "../types";
 
-export async function courtreserveCookies(config: FacilityConfig) {
+export async function courtreserveHeaders(config: FacilityConfig) {
   console.log('Launching browser...');
   const browser = await puppeteer.launch({
     headless: true,
@@ -49,9 +49,9 @@ export async function courtreserveCookies(config: FacilityConfig) {
     await fs.mkdir(path.dirname(cookiesPath), { recursive: true });
     await fs.writeFile(cookiesPath, JSON.stringify(cookies, null, 2));
     
-    return cookies;
+    return { Cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ') };
   } finally {
-    await new Promise(resolve => setTimeout(resolve, 3000));
+    await new Promise(resolve => setTimeout(resolve, 500));
     await browser.close();
   }
 }

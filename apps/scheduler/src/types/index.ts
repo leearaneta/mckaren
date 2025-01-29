@@ -7,6 +7,7 @@ export type FacilityConfig = {
   name: string;
   loginUrl: string;
   dataUrl: string;
+  headersPath?: string;
   reservationUrl?: string;
   email: string;
   password: string;
@@ -18,10 +19,10 @@ export type FacilityConfig = {
 export type SubscriptionOpening = Opening & { email: string };
 export type SubscriptionPreferences = Preferences & { email: string };
 
-export type Cookies = Cookie[];
+export type Headers = Record<string, string>;
 
 export type Facility = {
   config: FacilityConfig;
-  extractCookies: () => Promise<Cookies>;
-  getHalfHourOpeningsForDate: (date: Date, cookies: Cookies) => Promise<Omit<HalfHourOpening, 'facility'>[]>;
+  extractHeaders: () => Promise<Headers>;
+  getHalfHourOpeningsForDate: (date: Date, headers: Headers) => Promise<Omit<HalfHourOpening, 'facility'>[]>;
 } 

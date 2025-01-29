@@ -1,5 +1,5 @@
 <template>
-  <div class="container mx-auto p-6">
+  <div class="container max-w-[1280px] mx-auto p-6">
     <!-- Sticky date navigation -->
     <div class="sticky top-0 bg-white py-4 px-4 rounded-t-lg shadow z-10">
       <div class="flex items-center justify-around md:justify-normal gap-4">

@@ -1,17 +1,38 @@
 import cron from 'node-cron';
-import { cookies } from './etl/cookies';
+import { headers } from './etl/headers';
+import { pptc, mccarren, usta } from './facilities';
 import { main } from './etl/main';
 
 console.log('Starting ETL scheduler...');
 
-// Run cookies ETL daily at midnight
+// Run headers ETL daily at midnight
 cron.schedule('0 0 * * *', async () => {
-  console.log('Running cookies ETL...');
+  console.log('Running headers ETL...');
   try {
-    await cookies();
-    console.log('Cookies ETL completed successfully');
+    await headers(mccarren);
+    console.log('Headers for mccarren completed successfully');
   } catch (error) {
-    console.error('Error in cookies ETL:', error);
+    console.error('Error in headers ETL:', error);
+  }
+});
+
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running headers ETL...');
+  try {
+    await headers(usta);
+    console.log('Headers for usta completed successfully');
+  } catch (error) {
+    console.error('Error in headers ETL:', error);
+  }
+});
+
+cron.schedule('0 0 * * *', async () => {
+  console.log('Running headers ETL...');
+  try {
+    await headers(pptc);
+    console.log('Headers for pptc completed successfully');
+  } catch (error) {
+    console.error('Error in headers ETL:', error);
   }
 });
 
@@ -31,11 +52,15 @@ cron.schedule('*/5 * * * *', async () => {
   console.log('Running initial ETL jobs...');
   
   try {
-    console.log('Running initial cookies ETL...');
-    await cookies();
-    console.log('Initial cookies ETL completed successfully');
+    console.log('Running initial headers ETL...');
+    await Promise.all([
+      headers(mccarren),
+      headers(usta),
+      headers(pptc)
+    ]);
+    console.log('Initial headers ETL completed successfully');
   } catch (error) {
-    console.error('Error in initial cookies ETL:', error);
+    console.error('Error in initial headers ETL:', error);
   }
   
   try {
