@@ -9,7 +9,6 @@
     "dev": "tsc --watch"
   },
   "devDependencies": {
-    "typescript": "^5.0.0",
-    "puppeteer": "^21.0.0"
+    "typescript": "^5.0.0"
   }
 } 
