@@ -1,5 +1,5 @@
 import { config } from './config';
-import { HalfHourOpening, Headers } from '../../types';
+import { HalfHourOpening, Headers } from '~/types';
 
 interface ApiResponse {
   Data: Array<{

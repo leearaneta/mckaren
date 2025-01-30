@@ -1,6 +1,4 @@
 import puppeteer from "puppeteer";
-import fs from 'fs/promises';
-import path from 'path';
 import { FacilityConfig } from "../types";
 
 export async function courtreserveHeaders(config: FacilityConfig) {
@@ -44,10 +42,6 @@ export async function courtreserveHeaders(config: FacilityConfig) {
     await page.waitForNavigation({ waitUntil: 'networkidle0' });
     
     const cookies = await page.cookies();
-    
-    const cookiesPath = path.join(process.cwd(), 'data', 'cookies.json');
-    await fs.mkdir(path.dirname(cookiesPath), { recursive: true });
-    await fs.writeFile(cookiesPath, JSON.stringify(cookies, null, 2));
     
     return { Cookie: cookies.map(cookie => `${cookie.name}=${cookie.value}`).join('; ') };
   } finally {

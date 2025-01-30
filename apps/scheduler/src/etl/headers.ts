@@ -1,5 +1,5 @@
-import { pool } from '../utils/db';
-import { Facility } from '../types';
+import { pool } from '~/utils/db';
+import { Facility } from '~/types';
 
 export async function headers(facility: Facility): Promise<void> {
   const client = await pool.connect();

@@ -1,4 +1,4 @@
-import { HalfHourOpening } from "../types";
+import { HalfHourOpening } from "~/types";
 
 export function getHalfHourOpeningsFromReservations(
   reservations: { start: Date, end: Date, court: string }[],

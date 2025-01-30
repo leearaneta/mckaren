@@ -1,5 +1,5 @@
 import * as postmark from 'postmark';
-import type { Opening } from '../types';
+import type { Opening } from '~/types';
 
 if (!process.env.POSTMARK_API_KEY) {
   throw new Error('Missing POSTMARK_API_KEY environment variable');
@@ -84,12 +84,13 @@ function generateEmailContent(openings: Opening[], email: string): { subject: st
   // Add unsubscribe link at the bottom
   const unsubscribeUrl = `${process.env.ORIGIN}/api/unsubscribe?email=${encodeURIComponent(email)}`;
   htmlBody += `
-    <div style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #eee; color: #666; font-size: 0.875rem;">
-      <p> xoxo </p>
-      <p><a href="${unsubscribeUrl}" style="color: #5286fa;">unsubscribe</a></p>
+    <div style="margin-top: 1.5rem; padding-top: 1.5rem; border-top: 1px solid #eee;">
+      <div> xoxo </div>
+      <div><a href="${unsubscribeUrl}" style="color: #5286fa;">unsubscribe</a></div>
     </div>
   `;
 
+  htmlBody = '<div style="padding-left: 1rem; padding-top: 0.5rem;">' + htmlBody + '</div>';
   return { subject: 'new court openings!', htmlBody };
 }
 

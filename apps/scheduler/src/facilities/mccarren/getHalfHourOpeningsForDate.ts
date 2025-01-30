@@ -1,6 +1,6 @@
 import { config } from './config';
-import { HalfHourOpening, Headers } from '../../types';
-import { getHalfHourOpeningsFromReservations } from '../../utils/getHalfHourOpeningsFromReservations';
+import { HalfHourOpening, Headers } from '~/types';
+import { getHalfHourOpeningsFromReservations } from '~/utils/getHalfHourOpeningsFromReservations';
 
 
 interface CourtReserveResponse {

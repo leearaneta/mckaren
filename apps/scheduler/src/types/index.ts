@@ -1,7 +1,8 @@
-import type { Cookie } from 'puppeteer';
 import type { HalfHourOpening, Opening, Preferences } from '@mckaren/types';
+import type { Client } from '@mckaren/db';
 
 export { HalfHourOpening, Opening };
+export { Client };
 
 export type FacilityConfig = {
   name: string;

@@ -1,7 +1,7 @@
 import { getAllHalfHourOpenings, replaceOpenings, getNewSubscriptionOpenings } from './openings';
-import { pool } from '../utils/db';
-import { usta, mccarren, pptc } from '../facilities';
-import { Headers, Opening } from '../types';
+import { pool } from '~/utils/db';
+import { usta, mccarren, pptc } from '~/facilities';
+import { Headers, Opening } from '~/types';
 import { sendOpeningNotifications } from './mail';
 
 export async function getHeaders(facilityName: string): Promise<Headers> {

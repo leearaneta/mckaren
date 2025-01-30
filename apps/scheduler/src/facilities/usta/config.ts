@@ -1,5 +1,5 @@
 import dotenv from 'dotenv';
-import { FacilityConfig } from '../../types';
+import { FacilityConfig } from '~/types';
 
 dotenv.config();
 

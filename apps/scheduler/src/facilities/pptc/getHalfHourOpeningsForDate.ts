@@ -1,6 +1,6 @@
 import { HalfHourOpening } from "@mckaren/types";
-import { Headers } from "../../types";
-import { getHalfHourOpeningsFromReservations } from "../../utils/getHalfHourOpeningsFromReservations";
+import { Headers } from "~/types";
+import { getHalfHourOpeningsFromReservations } from "~/utils/getHalfHourOpeningsFromReservations";
 import { config } from "./config";
 import superagent from "superagent";
 

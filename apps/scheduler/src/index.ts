@@ -1,53 +1,51 @@
-import cron from 'node-cron';
+import { ToadScheduler, SimpleIntervalJob, AsyncTask, CronJob } from 'toad-scheduler';
 import { headers } from './etl/headers';
 import { pptc, mccarren, usta } from './facilities';
 import { main } from './etl/main';
 
 console.log('Starting ETL scheduler...');
 
-// Run headers ETL daily at midnight
-cron.schedule('0 0 * * *', async () => {
-  console.log('Running headers ETL...');
-  try {
-    await headers(mccarren);
-    console.log('Headers for mccarren completed successfully');
-  } catch (error) {
-    console.error('Error in headers ETL:', error);
-  }
-});
+const scheduler = new ToadScheduler();
 
-cron.schedule('0 0 * * *', async () => {
-  console.log('Running headers ETL...');
-  try {
-    await headers(usta);
-    console.log('Headers for usta completed successfully');
-  } catch (error) {
-    console.error('Error in headers ETL:', error);
-  }
-});
+// Create tasks for headers
+const mccarrenHeadersTask = new AsyncTask('mccarren-headers', () => headers(mccarren));
+const ustaHeadersTask = new AsyncTask('usta-headers', () => headers(usta));
+const pptcHeadersTask = new AsyncTask('pptc-headers', () => headers(pptc));
+const facilitiesTask = new AsyncTask('facilities', main);
 
-cron.schedule('0 0 * * *', async () => {
-  console.log('Running headers ETL...');
-  try {
-    await headers(pptc);
-    console.log('Headers for pptc completed successfully');
-  } catch (error) {
-    console.error('Error in headers ETL:', error);
-  }
-});
+// Create jobs with cron schedules
+const mccarrenHeadersJob = new CronJob(
+  { cronExpression: '0 0 * * *' },
+  mccarrenHeadersTask,
+  { preventOverrun: true }
+);
 
-// Run facilities ETL every 5 minutes
-cron.schedule('*/5 * * * *', async () => {
-  console.log('Running facilities ETL...');
-  try {
-    await main();
-    console.log('Facilities ETL completed successfully');
-  } catch (error) {
-    console.error('Error in facilities ETL:', error);
-  }
-});
+const ustaHeadersJob = new CronJob(
+  { cronExpression: '0 0 * * *' },
+  ustaHeadersTask,
+  { preventOverrun: true }
+);
 
-// Run both immediately on startup
+const pptcHeadersJob = new CronJob(
+  { cronExpression: '0 0 * * *' },
+  pptcHeadersTask,
+  { preventOverrun: true }
+);
+
+// Facilities job runs every 5 minutes
+const facilitiesJob = new SimpleIntervalJob(
+  { minutes: 5, runImmediately: false },
+  facilitiesTask,
+  { preventOverrun: true }
+);
+
+// Add all jobs to the scheduler
+scheduler.addCronJob(mccarrenHeadersJob);
+scheduler.addCronJob(ustaHeadersJob);
+scheduler.addCronJob(pptcHeadersJob);
+scheduler.addIntervalJob(facilitiesJob);
+
+// Run initial jobs immediately
 (async () => {
   console.log('Running initial ETL jobs...');
   
@@ -70,4 +68,17 @@ cron.schedule('*/5 * * * *', async () => {
   } catch (error) {
     console.error('Error in initial facilities ETL:', error);
   }
-})(); 
+})();
+
+// Handle graceful shutdown
+process.on('SIGINT', () => {
+  console.log('Shutting down scheduler...');
+  scheduler.stop();
+  process.exit(0);
+});
+
+process.on('SIGTERM', () => {
+  console.log('Shutting down scheduler...');
+  scheduler.stop();
+  process.exit(0);
+}); 

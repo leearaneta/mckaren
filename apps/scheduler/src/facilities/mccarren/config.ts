@@ -1,4 +1,4 @@
-import { FacilityConfig } from '../../types';
+import { FacilityConfig } from '~/types';
 
 if (!process.env.MCCARREN_EMAIL || !process.env.MCCARREN_PASSWORD || !process.env.MCCARREN_LOGIN_URL || !process.env.MCCARREN_DATA_URL || !process.env.MCCARREN_RESERVATION_URL) {
   throw new Error('Missing MCCARREN configuration in environment variables');

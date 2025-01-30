@@ -1,7 +1,7 @@
 import type { PoolClient } from '@mckaren/db';
 import type { DurationMinutes, Preferences } from '@mckaren/types';
 import { filterHalfHourOpeningsByPreferences, getOpenings } from '@mckaren/openings';
-import type { HalfHourOpening, Opening, Facility, Headers } from '../types';
+import type { HalfHourOpening, Opening, Facility, Headers } from '~/types';
 
 export async function getAllHalfHourOpenings(facility: Facility, headers: Headers): Promise<HalfHourOpening[]> {
   const allSlots: HalfHourOpening[] = [];
