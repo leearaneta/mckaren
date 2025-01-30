@@ -75,6 +75,7 @@ export const useFiltersStore = defineStore('filters', {
         minDuration: lastFilter.minDuration,
         daysOfWeek: [...lastFilter.daysOfWeek],
       })
+      this.setCurrentFilterIndex(this.filters.length - 1)
     },
 
     removeFilter(index: number) {

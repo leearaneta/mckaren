@@ -1,15 +1,18 @@
-import * as postmark from 'postmark';
+import formData from 'form-data';
+import Mailgun from 'mailgun.js';
 import type { Opening } from '~/types';
 
-if (!process.env.POSTMARK_API_KEY) {
-  throw new Error('Missing POSTMARK_API_KEY environment variable');
+if (!process.env.MAILGUN_API_KEY) {
+  throw new Error('Missing MAILGUN_API_KEY environment variable');
 }
 
 if (!process.env.ORIGIN) {
   throw new Error('Missing ORIGIN environment variable');
 }
 
-const client = new postmark.ServerClient(process.env.POSTMARK_API_KEY);
+const mailgun = new Mailgun(formData);
+const client = mailgun.client({ username: 'api', key: process.env.MAILGUN_API_KEY });
+const DOMAIN = 'mckaren.app';
 
 function groupOpeningsByFacility(openings: Opening[]): Record<string, Opening[]> {
   const grouped: Record<string, Opening[]> = {};
@@ -102,12 +105,11 @@ export async function sendOpeningNotifications(openingsByEmail: Record<string, O
     const { subject, htmlBody } = generateEmailContent(openings, email);
     
     try {
-      await client.sendEmail({
-        From: 'hello@mckaren.app',
-        To: email,
-        Subject: subject,
-        HtmlBody: htmlBody,
-        MessageStream: 'outbound'
+      await client.messages.create(DOMAIN, {
+        from: 'hello@mckaren.app',
+        to: email,
+        subject: subject,
+        html: htmlBody
       });
       console.log(`Sent notification email to ${email} for ${openings.length} openings`);
     } catch (error) {

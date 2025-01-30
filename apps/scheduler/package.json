@@ -14,7 +14,8 @@
     "@mckaren/openings": "workspace:*",
     "@mckaren/types": "workspace:*",
     "dotenv": "^16.3.1",
-    "postmark": "^4.0.2",
+    "form-data": "^4.0.1",
+    "mailgun.js": "^11.1.0",
     "puppeteer": "^23.5.1",
     "superagent": "^10.1.1",
     "toad-scheduler": "^3.0.1"

@@ -93,18 +93,25 @@ export default defineEventHandler(async (event) => {
       [body.email]
     )
 
-    // Insert all court preferences in one query
-    if (Object.keys(body.omittedCourts).length > 0) {
-      const courtPrefsValues = Object.entries(body.omittedCourts).map(
-        ([facility]) => `($1, ${client.escapeLiteral(facility)}, $2::text[])`
-      ).join(', ')
-      
-      await client.query(
-        `INSERT INTO facility_court_preferences (email, facility, omitted_courts)
-         VALUES ${courtPrefsValues}`,
-        [body.email, Object.values(body.omittedCourts).flat()]
-      )
-    }
+    // Create court preferences for all facilities in subscriptions
+    const facilitiesNeeded = new Set(body.subscriptions.map(sub => sub.facility))
+    const courtPrefsValues = Array.from(facilitiesNeeded)
+      .map((_, idx) => `($1, $${idx * 2 + 2}, $${idx * 2 + 3}::text[])`)
+      .join(', ')
+    
+    const courtPrefsParams = [
+      body.email,
+      ...Array.from(facilitiesNeeded).flatMap(facility => [
+        facility,
+        body.omittedCourts[facility] || []
+      ])
+    ]
+
+    await client.query(
+      `INSERT INTO facility_court_preferences (email, facility, omitted_courts)
+       VALUES ${courtPrefsValues}`,
+      courtPrefsParams
+    )
 
     // Insert all subscriptions in one query
     if (body.subscriptions.length > 0) {
