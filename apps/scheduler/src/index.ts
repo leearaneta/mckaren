@@ -27,7 +27,7 @@ const ustaHeadersJob = new CronJob(
 );
 
 const pptcHeadersJob = new CronJob(
-  { cronExpression: '0 0 * * *' },
+  { cronExpression: '0 * * * *' },
   pptcHeadersTask,
   { preventOverrun: true }
 );

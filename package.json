@@ -2,11 +2,12 @@
   "name": "mckaren",
   "private": true,
   "scripts": {
-    "scheduler": "pnpm --filter @mckaren/scheduler start",
     "build": "pnpm --filter @mckaren/types --filter @mckaren/openings --filter @mckaren/db --filter @mckaren/web --filter @mckaren/scheduler build",
     "db": "./scripts/start-db.sh",
     "dev": "pnpm --parallel --filter @mckaren/types --filter @mckaren/scheduler --filter @mckaren/db --filter @mckaren/openings --filter @mckaren/web dev",
-    "test": "pnpm --filter @mckaren/openings --filter @mckaren/scheduler test"
+    "test": "pnpm --filter @mckaren/openings --filter @mckaren/scheduler test",
+    "web": "pnpm --filter @mckaren/web start",
+    "scheduler": "pnpm --filter @mckaren/scheduler start"
   },
   "devDependencies": {
     "tsx": "^4.0.0"

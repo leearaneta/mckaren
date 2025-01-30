@@ -2,7 +2,7 @@
 SET timezone = 'America/New_York';
 
 -- Make this the default for all new connections
-ALTER DATABASE mckaren SET timezone = 'America/New_York';
+ALTER DATABASE :DBNAME SET timezone = 'America/New_York';
 
 -- Create facilities table with name as primary key
 CREATE TABLE IF NOT EXISTS facilities (

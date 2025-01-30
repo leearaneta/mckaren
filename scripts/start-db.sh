@@ -66,7 +66,7 @@ for migration in "$MIGRATIONS_DIR"/*.sql; do
     migration_exists=$(docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME -t -c "SELECT COUNT(*) FROM migrations WHERE name = '$migration_name';")
     if [ "$migration_exists" -eq "0" ]; then
         echo "Running migration: $migration_name"
-        if docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME < "$migration"; then
+        if docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME -v DBNAME="$DB_NAME" < "$migration"; then
             # Record successful migration
             docker exec -i $CONTAINER_NAME psql -U $DB_USER -d $DB_NAME -c "INSERT INTO migrations (name) VALUES ('$migration_name');"
             echo "Migration successful: $migration_name"
