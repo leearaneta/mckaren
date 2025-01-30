@@ -79,9 +79,17 @@ const offset = 0 // Sun
 const labels = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-// Compute display month and year from the selected date
-const displayYear = computed(() => props.modelValue.getFullYear())
-const displayMonth = computed(() => props.modelValue.getMonth())
+// Add separate state for displayed month/year
+const displayDate = ref(new Date(props.modelValue))
+
+// Update display date when selected date changes
+watch(() => props.modelValue, (newDate) => {
+  displayDate.value = new Date(newDate)
+}, { immediate: true })
+
+// Update computed values to use displayDate instead of modelValue
+const displayYear = computed(() => displayDate.value.getFullYear())
+const displayMonth = computed(() => displayDate.value.getMonth())
 
 function calendarize(date: Date, offset: number) {
   const year = date.getFullYear()
@@ -127,16 +135,36 @@ const prev = computed(() => calendarize(new Date(displayYear.value, displayMonth
 const current = computed(() => calendarize(new Date(displayYear.value, displayMonth.value), offset))
 const next = computed(() => calendarize(new Date(displayYear.value, displayMonth.value + 1), offset))
 
+// Helper function to get last day of a month
+function getLastDayOfMonth(year: number, month: number): number {
+  return new Date(year, month + 1, 0).getDate()
+}
+
+// Update navigation methods to handle month transitions properly
 function toPrev() {
-  const newDate = new Date(props.modelValue)
-  newDate.setMonth(newDate.getMonth() - 1)
-  emit('update:modelValue', newDate)
+  const currentDay = displayDate.value.getDate()
+  const prevMonth = displayDate.value.getMonth() - 1
+  const year = prevMonth < 0 ? displayDate.value.getFullYear() - 1 : displayDate.value.getFullYear()
+  const month = prevMonth < 0 ? 11 : prevMonth
+  
+  // Get last day of target month and clamp current day if needed
+  const lastDay = getLastDayOfMonth(year, month)
+  const targetDay = Math.min(currentDay, lastDay)
+  
+  displayDate.value = new Date(year, month, targetDay)
 }
 
 function toNext() {
-  const newDate = new Date(props.modelValue)
-  newDate.setMonth(newDate.getMonth() + 1)
-  emit('update:modelValue', newDate)
+  const currentDay = displayDate.value.getDate()
+  const nextMonth = displayDate.value.getMonth() + 1
+  const year = nextMonth > 11 ? displayDate.value.getFullYear() + 1 : displayDate.value.getFullYear()
+  const month = nextMonth > 11 ? 0 : nextMonth
+  
+  // Get last day of target month and clamp current day if needed
+  const lastDay = getLastDayOfMonth(year, month)
+  const targetDay = Math.min(currentDay, lastDay)
+  
+  displayDate.value = new Date(year, month, targetDay)
 }
 
 function isToday(day: number) {
@@ -146,7 +174,9 @@ function isToday(day: number) {
 }
 
 function handleDateClick({ year, month, dayOfMonth }: { year: number, month: number, dayOfMonth: number }) {
-  emit('update:modelValue', new Date(year, month, dayOfMonth))
+  const newDate = new Date(year, month, dayOfMonth)
+  emit('update:modelValue', newDate)
+  // Display date will be updated via the watcher
 }
 
 function isSameDay(date1: Date, date2: Date): boolean {
@@ -161,8 +191,8 @@ function hasOpenings({ year, month, dayOfMonth }: { year: number, month: number,
 }
 
 function isSelected(day: number) {
-  return displayYear.value === props.modelValue.getFullYear() && 
-         displayMonth.value === props.modelValue.getMonth() && 
+  return props.modelValue.getFullYear() === displayYear.value && 
+         props.modelValue.getMonth() === displayMonth.value && 
          day === props.modelValue.getDate()
 }
 </script>
