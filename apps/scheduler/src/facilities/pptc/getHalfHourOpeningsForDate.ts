@@ -33,6 +33,13 @@ export async function getHalfHourOpeningsForDate(date: Date, headers: Headers): 
       .send(postBody)
 
     const data = response.body as PPTCResponse;
+    try {
+      JSON.parse(data.CourtBooking_GetResult)
+    } catch (e) {
+      console.log(e)
+      console.log(data.CourtBooking_GetResult)
+      throw e
+    }
     const [resources, _bookings] = JSON.parse(data.CourtBooking_GetResult) as PPTCData;
     const resourceNamesById = new Map(resources.map(r => [r.id, r.name]));
 

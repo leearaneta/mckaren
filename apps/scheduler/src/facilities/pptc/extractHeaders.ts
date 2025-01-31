@@ -16,7 +16,6 @@ export async function extractHeaders() {
     page.on('request', request => {
       if (request.headers()['requestverificationtoken']) {
         const headers = request.headers();
-        console.log('Found request verification token', headers['requestverificationtoken']);
         requestVerificationToken = headers['requestverificationtoken'];
       }
       request.continue();
@@ -55,6 +54,7 @@ export async function extractHeaders() {
     };
 
     headers.RequestVerificationToken = requestVerificationToken || '';
+    console.log('requestVerificationToken', requestVerificationToken);
     return headers;
   } finally {
     await new Promise(resolve => setTimeout(resolve, 500));

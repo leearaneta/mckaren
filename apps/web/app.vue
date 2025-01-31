@@ -89,7 +89,8 @@
             class="px-4 py-2 text-sm font-medium transition-colors duration-200 -mb-px"
             :class="{
               'text-blue-600 border-b-2 border-blue-600': selectedFacility === facility.name,
-              'text-gray-500 hover:text-gray-700': selectedFacility !== facility.name
+              'text-blue-600': openingsByFacilityForSelectedDate[facility.name]?.length > 0,
+              'text-gray-500 hover:text-gray-700': selectedFacility !== facility.name && openingsByFacilityForSelectedDate[facility.name]?.length === 0,
             }"
             @click="selectedFacility = facility.name"
           >
@@ -105,7 +106,7 @@
             :facility="currentFacility"
             :omitted-courts="filters.omittedCourts[currentFacility.name]"
             :half-hour-openings="displayHalfHourOpeningsByFacility[currentFacility.name] || []"
-            :openings="currentFacilityOpenings"
+            :openings="openingsByFacilityForSelectedDate[currentFacility.name] || []"
             :date="selectedDate"
           />
         </template>
@@ -149,7 +150,7 @@ const showSubscriptionModal = ref(false)
 const selectedDate = ref(new Date())
 const selectedFacility = ref('')
 
-const POLL_INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
+const POLL_INTERVAL_MS = 2 * 60 * 1000; // 2 minutes
 let intervalId: NodeJS.Timeout | null = null;
 let isFetchQueued = false;
 
@@ -316,11 +317,12 @@ const currentFacility = computed(() =>
   facilities.value.find(f => f.name === selectedFacility.value)
 )
 
-// Get openings for current facility and selected date
-const currentFacilityOpenings = computed(() => {
-  if (!currentFacility.value) return []
-  return (validOpeningsByFacility.value[currentFacility.value.name] || [])
-    .filter(opening => isSameDay(opening.startDatetime, selectedDate.value))
+const openingsByFacilityForSelectedDate = computed(() => {
+  const byFacility: Record<string, Opening[]> = {}
+  for (const [facility, openings] of Object.entries(validOpeningsByFacility.value)) {
+    byFacility[facility] = openings.filter(opening => isSameDay(opening.startDatetime, selectedDate.value))
+  }
+  return byFacility
 })
 
 // Set initial facility when facilities are loaded

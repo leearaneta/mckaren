@@ -34,7 +34,7 @@ const pptcHeadersJob = new CronJob(
 
 // Facilities job runs every 5 minutes
 const facilitiesJob = new SimpleIntervalJob(
-  { minutes: 5, runImmediately: false },
+  { minutes: 2, runImmediately: false },
   facilitiesTask,
   { preventOverrun: true }
 );

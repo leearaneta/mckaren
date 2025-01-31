@@ -93,7 +93,7 @@ function generateEmailContent(openings: Opening[], email: string): { subject: st
     </div>
   `;
 
-  htmlBody = '<div style="padding-left: 1rem; padding-top: 0.5rem;">' + htmlBody + '</div>';
+  htmlBody = '<div>' + htmlBody + '</div>';
   return { subject: 'new court openings!', htmlBody };
 }
 
