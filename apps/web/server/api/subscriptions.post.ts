@@ -4,7 +4,8 @@ import { pool } from '~/server/utils/db'
 interface SubscriptionRequest {
   email: string;
   subscriptions: {
-    facility: string;
+    name: string;
+    facilities: string[];
     preferences: Omit<Preferences, 'omittedCourts'>;
   }[];
   omittedCourts: {
@@ -13,15 +14,16 @@ interface SubscriptionRequest {
 }
 
 // Helper function to get parameter index for each subscription field
-function getParamIndex(subscriptionIndex: number, field: 'daysOfWeek' | 'minDuration' | 'startHour' | 'startMinute' | 'endHour' | 'endMinute'): number {
-  const FIELDS_PER_SUBSCRIPTION = 6
+function getParamIndex(subscriptionIndex: number, field: 'name' | 'daysOfWeek' | 'minDuration' | 'startHour' | 'startMinute' | 'endHour' | 'endMinute'): number {
+  const FIELDS_PER_SUBSCRIPTION = 7
   const fieldIndices = {
-    daysOfWeek: 2,
-    minDuration: 3,
-    startHour: 4,
-    startMinute: 5,
-    endHour: 6,
-    endMinute: 7
+    name: 2,
+    daysOfWeek: 3,
+    minDuration: 4,
+    startHour: 5,
+    startMinute: 6,
+    endHour: 7,
+    endMinute: 8
   }
   return subscriptionIndex * FIELDS_PER_SUBSCRIPTION + fieldIndices[field]
 }
@@ -88,13 +90,14 @@ export default defineEventHandler(async (event) => {
       `DELETE FROM facility_court_preferences WHERE email = $1`,
       [body.email]
     )
+    // Delete subscriptions - facility_subscriptions will be deleted automatically via cascade
     await client.query(
-      `DELETE FROM facility_subscriptions WHERE email = $1`,
+      `DELETE FROM subscriptions WHERE email = $1`,
       [body.email]
     )
 
     // Create court preferences for all facilities in subscriptions
-    const facilitiesNeeded = new Set(body.subscriptions.map(sub => sub.facility))
+    const facilitiesNeeded = new Set(body.subscriptions.map(sub => sub.facilities).flat())
     const courtPrefsValues = Array.from(facilitiesNeeded)
       .map((_, idx) => `($1, $${idx * 2 + 2}, $${idx * 2 + 3}::text[])`)
       .join(', ')
@@ -116,9 +119,9 @@ export default defineEventHandler(async (event) => {
     // Insert all subscriptions in one query
     if (body.subscriptions.length > 0) {
       const subscriptionValues = body.subscriptions.map(
-        (sub, idx) => `(
+        (_, idx) => `(
           $1,
-          ${client.escapeLiteral(sub.facility)},
+          $${getParamIndex(idx, 'name')},
           $${getParamIndex(idx, 'daysOfWeek')}::integer[],
           $${getParamIndex(idx, 'minDuration')}::integer,
           $${getParamIndex(idx, 'startHour')}::integer,
@@ -131,6 +134,7 @@ export default defineEventHandler(async (event) => {
       const subscriptionParams = [
         body.email,
         ...body.subscriptions.flatMap(sub => [
+          sub.name || '',
           sub.preferences.daysOfWeek,
           sub.preferences.minDuration,
           sub.preferences.minStartTime.hour,
@@ -140,18 +144,46 @@ export default defineEventHandler(async (event) => {
         ])
       ]
 
-      await client.query(
-        `INSERT INTO facility_subscriptions (
+      const insertedSubscriptions = await client.query(
+        `INSERT INTO subscriptions (
           email,
-          facility,
+          name,
           days_of_week,
           minimum_duration,
           start_hour,
           start_minute,
           end_hour,
           end_minute
-        ) VALUES ${subscriptionValues}`,
+        ) VALUES ${subscriptionValues}
+        RETURNING id`,
         subscriptionParams
+      )
+
+      // Create facility_subscriptions join records
+      const { values: facilitySubscriptionValues } = body.subscriptions.reduce((acc, sub) => ({
+        paramCounter: acc.paramCounter + sub.facilities.length * 2,
+        values: [
+          ...acc.values,
+          ...sub.facilities.map((_, i) => 
+            `($${acc.paramCounter + i * 2}, $${acc.paramCounter + i * 2 + 1})`
+          )
+        ]
+      }), { paramCounter: 1, values: [] as string[] });
+
+      const facilitySubscriptionParams = body.subscriptions.flatMap((sub, subIndex) => {
+        const subscriptionId = insertedSubscriptions.rows[subIndex].id;
+        return sub.facilities.flatMap(facility => [
+          facility,
+          subscriptionId
+        ]);
+      });
+
+      await client.query(
+        `INSERT INTO facility_subscriptions (
+          facility,
+          subscription_id
+        ) VALUES ${facilitySubscriptionValues.join(', ')}`,
+        facilitySubscriptionParams
       )
     }
 

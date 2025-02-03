@@ -139,11 +139,12 @@ export async function getNewSubscriptionOpenings(
         s.end_hour,
         s.end_minute,
         p.omitted_courts
-      FROM facility_subscriptions s
+      FROM subscriptions s
+      JOIN facility_subscriptions fs ON fs.subscription_id = s.id
       JOIN facility_court_preferences p 
         ON s.email = p.email 
-        AND s.facility = p.facility
-      WHERE s.facility = $1
+        AND fs.facility = p.facility
+      WHERE fs.facility = $1
     `, [facility.config.name]);
 
     const formattedSubscriptions = formatSubscriptionRows(subscriptions.rows);

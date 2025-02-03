@@ -1,19 +1,23 @@
 <template>
   <div class="flex flex-col space-between">
-    <!-- Filter courts button -->
-    <div class="mb-4">
-      <button 
-        class="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
-        @click="$emit('showCourtFilter')"
-      >
-        Filter courts
-      </button>
-    </div>
 
     <!-- Main controls area -->
     <div class="flex flex-col md:flex-row gap-4">
       <!-- Controls section -->
       <div class="flex flex-col flex-1 max-w-[360px]">
+        <!-- Filter name -->
+        <div class="mb-4">
+          <label class="flex flex-col space-y-1">
+            <span class="text-sm font-medium text-gray-700">Filter name:</span>
+            <input
+              type="text"
+              v-model="filters.currentFilter.name"
+              placeholder="e.g. weekday mornings"
+              class="rounded-lg border-gray-300 text-sm w-full px-2 py-1.5"
+            >
+          </label>
+        </div>
+
         <!-- Facility filters -->
         <div class="grid grid-cols-2 md:flex md:flex-wrap gap-1 md:gap-2 mb-4 md:mb-6">
           <label 
@@ -124,8 +128,14 @@
               </svg>
             </button>
 
-            <div class="text-sm font-medium text-gray-700">
-              Filter {{ filters.currentFilterIndex + 1 }}
+            <!-- Filter position dots -->
+            <div class="flex gap-1.5">
+              <div 
+                v-for="i in filters.filters.length" 
+                :key="i"
+                class="w-1.5 h-1.5 rounded-full transition-colors"
+                :class="i - 1 === filters.currentFilterIndex ? 'bg-blue-600' : 'bg-gray-300'"
+              />
             </div>
 
             <button 
@@ -154,11 +164,17 @@
             >
               Remove filter
             </button>
+            <button 
+              class="text-xs px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+              @click="$emit('showCourtFilter')"
+            >
+              Courts
+            </button>
           </div>
         </div>
 
         <!-- Desktop filter list - hidden on mobile -->
-        <div class="hidden md:block">
+        <div class="hidden md:flex flex-col h-full">
           <div class="flex items-center gap-4 mb-4">
             <h3 class="text-sm font-medium text-gray-700">Filters</h3>
             <button 
@@ -168,28 +184,39 @@
               +
             </button>
           </div>
-          <div class="space-y-2 overflow-y-auto flex-1">
-            <div
-              v-for="(filter, index) in filters.filters"
-              :key="index"
-              class="flex items-center gap-1"
-            >
-              <button
-                class="flex-1 px-2 py-1 text-left text-sm rounded-lg transition-colors duration-200 whitespace-nowrap"
-                :class="{
-                  'bg-blue-50 text-blue-600': filters.currentFilterIndex === index,
-                  'hover:bg-gray-50': filters.currentFilterIndex !== index
-                }"
-                @click="filters.setCurrentFilterIndex(index)"
+          <div class="flex flex-col justify-between flex-1">
+            <div class="space-y-2 overflow-y-auto flex-1">
+              <div
+                v-for="(filter, index) in filters.filters"
+                :key="index"
+                class="flex items-center gap-1"
               >
-                Filter {{ index + 1 }}
-              </button>
+                <button
+                  class="flex-1 px-2 py-1 text-left text-sm rounded-lg transition-colors duration-200 whitespace-nowrap overflow-hidden"
+                  :class="{
+                    'bg-blue-50 text-blue-600': filters.currentFilterIndex === index,
+                    'hover:bg-gray-50': filters.currentFilterIndex !== index
+                  }"
+                  @click="filters.setCurrentFilterIndex(index)"
+                >
+                  <span class="truncate block">{{ getFilterDisplayName(filter, index) }}</span>
+                </button>
+                <button 
+                  v-if="filters.filters.length > 1"
+                  class="px-2 text-gray-400 hover:text-red-600"
+                  @click="filters.removeFilter(index)"
+                >
+                  ×
+                </button>
+              </div>
+            </div>
+            <!-- Filter courts button -->
+            <div>
               <button 
-                v-if="filters.filters.length > 1"
-                class="px-2 text-gray-400 hover:text-red-600"
-                @click="filters.removeFilter(index)"
+                class="px-2 py-1 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                @click="$emit('showCourtFilter')"
               >
-                ×
+                Omit courts
               </button>
             </div>
           </div>
@@ -204,6 +231,7 @@
 import { computed } from 'vue'
 import { useFiltersStore } from '~/stores/filters'
 import type { Facility } from '~/utils/types'
+import type { Filter } from '~/stores/filters'
 
 defineProps<{
   facilities: Facility[]
@@ -258,5 +286,10 @@ const isEndTimeBeforeStart = computed(() => {
   const startHour = start.hour
   return endHour < startHour || (endHour === startHour && end.minute <= start.minute)
 })
+
+function getFilterDisplayName(filter: Filter, index: number): string {
+  const name = filter.name.trim() || `Filter ${index + 1}`;
+  return name.length > 25 ? `${name.slice(0, 25)}...` : name;
+}
 
 </script> 

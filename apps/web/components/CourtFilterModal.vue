@@ -2,7 +2,7 @@
   <Modal
     :show="show"
     :z-index="zIndex"
-    title="Filter courts"
+    title="Omit courts"
     @close="$emit('close')"
     @confirm="$emit('close')"
   >

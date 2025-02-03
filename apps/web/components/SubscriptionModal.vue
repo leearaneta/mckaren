@@ -120,17 +120,16 @@ async function handleSubscribe() {
       },
       body: JSON.stringify({
         email: email.value,
-        subscriptions: filters.filters.flatMap(filter => 
-          filter.selectedFacilities.map(facility => ({
-            facility,
-            preferences: {
-              minStartTime: filter.minStartTime,
-              maxEndTime: filter.maxEndTime,
-              minDuration: filter.minDuration,
-              daysOfWeek: filter.daysOfWeek,
-            }
-          }))
-        ),
+        subscriptions: filters.filters.map(filter => ({
+          name: filter.name,
+          facilities: filter.selectedFacilities,
+          preferences: {
+            minStartTime: filter.minStartTime,
+            maxEndTime: filter.maxEndTime,
+            minDuration: filter.minDuration,
+            daysOfWeek: filter.daysOfWeek,
+          }
+        })),
         omittedCourts: filters.omittedCourts
       })
     })
