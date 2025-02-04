@@ -1,0 +1,22 @@
+name: Deploy to Pi
+
+on:
+  push:
+    branches: [ main ]  # or whatever your default branch is named
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Pi
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.PI_HOST }}
+          username: ${{ secrets.PI_USERNAME }}
+          key: ${{ secrets.PI_SSH_KEY }}
+          script: |
+            cd /home/babo/dev/mckaren
+            git pull
+            pnpm install
+            pnpm build:scheduler
+            pm2 restart mckaren
